@@ -1,0 +1,123 @@
+---
+title: "Testing LIGER"
+output: html_notebook
+---
+
+```{r}
+# library(devtools)
+# install_github('MacoskoLab/liger')
+library(tidyverse)
+library(liger)
+library(Rtsne)
+```
+
+Testing LIGER for integration of scATAC and scRNA data. Following vignette from (gitHub)[https://macoskolab.github.io/liger/walkthrough_rna_atac.html].
+
+### 1. Download and load datasets: 
+ATAC data is preprocessed to gene-level features (no. of reads that overlap gene body and promoter for each gene). Data is downloaded from (here)[https://umich.app.box.com/s/5hkhpou4inrulo570yhc38ay8g3ont5b]
+```{r}
+rna_clusts = readRDS("~/10X_data/rna_cluster_assignments.RDS")
+atac_clusts = readRDS("~/10X_data/atac_cluster_assignments.RDS")
+pbmc.atac <- readRDS('~/10X_data/pbmc.atac.expression.mat.RDS')
+pbmc.rna <- readRDS('~/10X_data/pbmc.rna.expression.mat.RDS')
+```
+
+### 2. Create LIGER object
+List of count matrices as input. `createLiger` converts to sparseMatrices. 
+```{r}
+pbmc.data = list(atac=pbmc.atac[,names(atac_clusts)], rna=pbmc.rna[,names(rna_clusts)])
+int.pbmc <- createLiger(pbmc.data)
+
+```
+### 3. Data preprocessing
+```{r}
+## Normalize to column total (adj. for sequencing depth)
+int.pbmc <- normalize(int.pbmc)
+## Select highly variable genes ONLY IN THE RNA DATASET
+int.pbmc <- selectGenes(int.pbmc, datasets.use = 2)
+## Scale to the SD
+int.pbmc <- scaleNotCenter(int.pbmc)
+```
+
+### 4. Run NMF 
+
+```{r}
+int.pbmc <- optimizeALS(int.pbmc, k=20)
+```
+```{r}
+smp <- sample(1:nrow(int.pbmc@H$atac), size = 1000)
+smp_genes <- sample(1:length(int.pbmc@var.genes), size = 100)
+
+int.pbmc@W[,smp_genes] %>% heatmap(Rowv = NA)
+int.pbmc@V$atac[,smp_genes] %>% heatmap(Rowv = NA)
+```
+
+### Align factor
+Dodgy quantile normalization
+```{r}
+int.pbmc <- quantileAlignSNF(int.pbmc)
+```
+
+### Visualize 
+```{r}
+runMyTSNE <- function(object, use.raw = F, dims.use = 1:ncol(object@H.norm), use.pca = F,
+                    perplexity = 30, theta = 0.5, method = 'Rtsne', fitsne.path = NULL,
+                    rand.seed = 42) {
+  data.use <- do.call(rbind, object@H)  
+  set.seed(rand.seed)
+  object@tsne.coords <- Rtsne(object@H.norm[, dims.use], pca = use.pca, check_duplicates = F,
+                                theta = theta, perplexity = perplexity)$Y
+  rownames(object@tsne.coords) <- rownames(data.use)
+  return(object)
+}
+
+
+
+```
+
+### Visualize dataset-specific VS common latent factors
+
+Even in dataset specific component there is separation of cell types (Meaningful information that is ATAC specific?)
+
+```{r}
+
+atac.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@V$atac
+common.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@W
+
+tsne.atac.comp <- Rtsne(atac.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=20)
+rownames(tsne.atac.comp$Y) <- rownames(atac.comp)
+tsne.common.comp <- Rtsne(common.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.common.comp$Y) <- rownames(common.comp)
+
+
+tsne.atac.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=atac_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+tsne.common.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=atac_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+```
+
+Plot by sequencing depth
+```{r}
+tsne.atac.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=atac_clusts[cell])
+```
+
+
+
+
+
+
+
+
+
+
+
