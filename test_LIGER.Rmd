@@ -9,6 +9,8 @@ output: html_notebook
 library(tidyverse)
 library(liger)
 library(Rtsne)
+library(reshape2)
+library(ggrepel)
 ```
 
 Testing LIGER for integration of scATAC and scRNA data. Following vignette from (gitHub)[https://macoskolab.github.io/liger/walkthrough_rna_atac.html].
@@ -56,24 +58,26 @@ int.pbmc@V$atac[,smp_genes] %>% heatmap(Rowv = NA)
 Dodgy quantile normalization
 ```{r}
 int.pbmc <- quantileAlignSNF(int.pbmc)
+# saveRDS(int.pbmc, file = "~/10X_data/pbmc.trainedLIGER.RDS")
+int.pbmc <- readRDS(file = "~/10X_data/pbmc.trainedLIGER.RDS")
 ```
 
-### Visualize 
-```{r}
-runMyTSNE <- function(object, use.raw = F, dims.use = 1:ncol(object@H.norm), use.pca = F,
-                    perplexity = 30, theta = 0.5, method = 'Rtsne', fitsne.path = NULL,
-                    rand.seed = 42) {
-  data.use <- do.call(rbind, object@H)  
-  set.seed(rand.seed)
-  object@tsne.coords <- Rtsne(object@H.norm[, dims.use], pca = use.pca, check_duplicates = F,
-                                theta = theta, perplexity = perplexity)$Y
-  rownames(object@tsne.coords) <- rownames(data.use)
-  return(object)
-}
+<!-- ### Visualize  -->
+<!-- ```{r} -->
+<!-- runMyTSNE <- function(object, use.raw = F, dims.use = 1:ncol(object@H.norm), use.pca = F, -->
+<!--                     perplexity = 30, theta = 0.5, method = 'Rtsne', fitsne.path = NULL, -->
+<!--                     rand.seed = 42) { -->
+<!--   data.use <- do.call(rbind, object@H)   -->
+<!--   set.seed(rand.seed) -->
+<!--   object@tsne.coords <- Rtsne(object@H.norm[, dims.use], pca = use.pca, check_duplicates = F, -->
+<!--                                 theta = theta, perplexity = perplexity)$Y -->
+<!--   rownames(object@tsne.coords) <- rownames(data.use) -->
+<!--   return(object) -->
+<!-- } -->
 
 
 
-```
+<!-- ``` -->
 
 ### Visualize dataset-specific VS common latent factors
 
@@ -82,12 +86,12 @@ Even in dataset specific component there is separation of cell types (Meaningful
 ```{r}
 
 atac.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@V$atac
-common.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@W
+atac.common.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@W
 
-tsne.atac.comp <- Rtsne(atac.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=20)
+tsne.atac.comp <- Rtsne(atac.comp, pca=T, check_duplicates = F, theta=0.5, perplexity=10)
 rownames(tsne.atac.comp$Y) <- rownames(atac.comp)
-tsne.common.comp <- Rtsne(common.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=30)
-rownames(tsne.common.comp$Y) <- rownames(common.comp)
+tsne.atac.common.comp <- Rtsne(atac.common.comp, pca=T, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.atac.common.comp$Y) <- rownames(atac.common.comp)
 
 
 tsne.atac.comp$Y %>%
@@ -96,7 +100,7 @@ tsne.atac.comp$Y %>%
   ggplot(aes(V1, V2, color=clust)) + 
   geom_point()
 
-tsne.common.comp$Y %>%
+tsne.atac.common.comp$Y %>%
   as.tibble(rownames="cell") %>%
   mutate(clust=atac_clusts[cell]) %>%
   ggplot(aes(V1, V2, color=clust)) + 
@@ -104,12 +108,70 @@ tsne.common.comp$Y %>%
 
 ```
 
-Plot by sequencing depth
 ```{r}
-tsne.atac.comp$Y %>%
+
+rna.comp <- int.pbmc@H$rna[smp,] %*% int.pbmc@V$rna
+rna.common.comp <- int.pbmc@H$rna[smp,] %*% int.pbmc@W
+
+tsne.rna.comp <- Rtsne(rna.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.rna.comp$Y) <- rownames(rna.comp)
+tsne.rna.common.comp <- Rtsne(rna.common.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.rna.common.comp$Y) <- rownames(rna.common.comp)
+
+
+tsne.rna.comp$Y %>%
   as.tibble(rownames="cell") %>%
-  mutate(clust=atac_clusts[cell])
+  mutate(clust=rna_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+tsne.rna.common.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=rna_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
 ```
+
+### Compare weights of dataset specific and common factors
+```{r}
+int.pbmc@W %>% 
+  melt(varnames = c("factor", "gene")) %>%
+  filter(factor==1) %>%
+  mutate(rank=rank(value)) %>%
+  ggplot(aes(rank, value)) + 
+  geom_point() +
+  geom_text_repel(data=. %>% filter(rank > 2300), aes(label=gene))
+```
+```{r}
+V_atac <- int.pbmc@V$atac 
+colnames(V_atac) <- colnames(int.pbmc@W)
+
+V_rna <- int.pbmc@V$rna
+colnames(V_rna) <- colnames(int.pbmc@W)
+
+V_atac %>% 
+  melt(varnames = c("factor", "gene")) %>%
+  filter(factor==1) %>%
+  mutate(rank=rank(value)) %>%
+  ggplot(aes(rank, value)) + 
+  geom_point() +
+  geom_text_repel(data=. %>% filter(rank > 2300), aes(label=gene)) +
+  ggtitle('top V ATAC')
+
+V_rna %>% 
+  melt(varnames = c("factor", "gene")) %>%
+  group_by(factor) %>%
+  mutate(rank=rank(value)) %>%
+  ungroup() %>%
+  ggplot(aes(rank, value)) + 
+  geom_point() +
+  # geom_text_repel(data=. %>% filter(rank > 2310), aes(label=gene)) +
+  facet_wrap(factor~.) +
+  ggtitle('top V ATAC')
+
+```
+
 
 
 
