@@ -53,6 +53,9 @@ smp_genes <- sample(1:length(int.pbmc@var.genes), size = 100)
 int.pbmc@W[,smp_genes] %>% heatmap(Rowv = NA)
 int.pbmc@V$atac[,smp_genes] %>% heatmap(Rowv = NA)
 ```
+```{r}
+
+```
 
 ### Align factor
 Dodgy quantile normalization
@@ -75,6 +78,21 @@ int.pbmc <- readRDS(file = "~/10X_data/pbmc.trainedLIGER.RDS")
 <!--   return(object) -->
 <!-- } -->
 
+```{r}
+smp_genes <- sample(1:2000,10)
+int.pbmc@scale.data$atac[,
+                         smp_genes] %>%
+  melt(varnames=c("cell", "gene")) %>%
+  ggplot(aes(value, color=gene)) + geom_histogram() +
+  facet_wrap(gene~.)
+
+int.pbmc@scale.data$rna[,
+                         smp_genes] %>%
+  melt(varnames=c("cell", "gene")) %>%
+  ggplot(aes(value, color=gene)) + geom_histogram() +
+  facet_wrap(gene~.)
+  
+```
 
 
 <!-- ``` -->
@@ -170,6 +188,11 @@ V_rna %>%
   facet_wrap(factor~.) +
   ggtitle('top V ATAC')
 
+```
+```{r}
+genes.bc <- read.table(file = "../my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.genes_bc.bed", sep = "\t", as.is = c(1), header = FALSE)
+
+genes.bc
 ```
 
 
