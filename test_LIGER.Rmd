@@ -62,7 +62,7 @@ Dodgy quantile normalization
 ```{r}
 int.pbmc <- quantileAlignSNF(int.pbmc)
 # saveRDS(int.pbmc, file = "~/10X_data/pbmc.trainedLIGER.RDS")
-int.pbmc <- readRDS(file = "~/10X_data/pbmc.trainedLIGER.RDS")
+int.pbmc <- readRDS(file = "~/my_data/10X_data/pbmc.trainedLIGER.RDS")
 ```
 
 <!-- ### Visualize  -->
@@ -195,9 +195,58 @@ genes.bc <- read.table(file = "../my_data/cellranger-atac110_count_30439_WSSS803
 genes.bc
 ```
 
+### Are HVGs in RNA low coverage in ATAC?
+```{r}
+
+long_atac_raw <- 
+  int.pbmc@raw.data$atac %>%
+  as.matrix() %>%
+  melt(varnames=c("gene", "cell")) %>%
+  mutate(var_gene=ifelse(gene %in% int.pbmc@var.genes, T, F)) 
+
+cell_smp <- sample(unique(long_atac_raw$cell), 500)
+gene_smp <- sample(unique(long_atac_raw$gene), 1000)
+
+long_atac_raw %>%
+  filter(gene %in% gene_smp & cell %in% cell_smp) %>%
+  ggplot(aes(value, fill=var_gene)) + 
+  geom_histogram(bins=100) +
+  facet_wrap(var_gene~., scales = "free_y") +
+  coord_cartesian(xlim=c(0,30))
 
 
+```
 
+```{r}
+long_atac_raw %>%
+  filter(gene %in% gene_smp & cell %in% cell_smp) %>%
+  mutate(zeroes=ifelse(value==0, T,F)) %>%
+  ggplot(aes(var_gene, fill=zeroes)) + 
+  geom_bar(position="fill")
+```
+
+
+### Evaluate feature selection for ATAC-seq data
+```{r}
+int.pbmc_hvg_rna <- selectGenes(int.pbmc, num.genes = 2000, datasets.use = 2)
+int.pbmc_hvg_atac <- selectGenes(int.pbmc, num.genes = 2000, datasets.use = 1)
+
+plot_meanAcc_hvgs <- function(int.pbmc){
+  gene_means <- 
+    int.pbmc@raw.data$atac %>%
+    rowMeans()
+  data.frame(meanAcc=gene_means, gene=names(gene_means)) %>%
+     mutate(var_gene=ifelse(gene %in% int.pbmc@var.genes, "HVG", "other")) %>%
+    ggplot(aes(fill=var_gene, meanAcc)) +
+    geom_histogram(bins=50) +
+    facet_wrap(var_gene~., scales="free_y", nrow=2, ncol=1)
+  }
+
+ggarrange(
+  plot_meanAcc_hvgs(int.pbmc_hvg_rna) + ggtitle("HVG RNA"),
+  plot_meanAcc_hvgs(int.pbmc_hvg_atac) + ggtitle("HVG ATAC"), common.legend = TRUE
+  )
+```
 
 
 

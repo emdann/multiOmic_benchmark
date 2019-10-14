@@ -3,8 +3,8 @@ title: "ATAC preprocessing with Seurat pipeline "
 output: html_notebook
 ---
 
-
 ```{r}
+suppressPackageStartupMessages({
 library(Seurat)
 library(tidyverse)
 library(AnnotationHub)
@@ -12,41 +12,19 @@ library(Organism.dplyr)
 library(pbapply)
 library(future)
 library(reshape2)
-library("TxDb.Hsapiens.UCSC.hg38.knownGene")
-
+})
 ```
 
-Load peaks and create feature matrix. I transformed the gtf annotation file to comply with the UCSC annotation (starting with 'chr') (running `cat annotations/Homo_sapiens.GRCh38.98.abinitio.gtf | awk '{if(!/^ *#/) print "chr"$0; else print;}' > annotations/Homo_sapiens.GRCh38.98.abinitio.ucsc.gtf`)
+Load peaks and create feature matrix. Annotation file downloaded from `ftp://ftp.ensembl.org/pub/release-86/gtf/homo_sapiens/Homo_sapiens.GRCh38.86.gtf.gz`. I transformed the gtf annotation file to comply with the UCSC annotation (starting with 'chr') (running `cat annotations/Homo_sapiens.GRCh38.98.abinitio.gtf | awk '{if(!/^ *#/) print "chr"$0; else print;}' > annotations/Homo_sapiens.GRCh38.98.abinitio.ucsc.gtf`)
 
-```{r}
+```{r, echo=T}
 peaks <- Read10X_h5("~/my_data/filtered_peak_bc_matrix.h5")
-# create a gene activity matrix from the peak matrix and GTF, using chromosomes 1:22, X, and Y.
-# Peaks that fall within gene bodies, or 2kb upstream of a gene, are considered
-```
-
-<!-- Extract annotations  -->
-<!-- ```{r} -->
-<!-- ah <- AnnotationHub() -->
-<!-- grs <- query(ah, "GRanges") -->
-<!-- orgs <- subset(ah, ah$rdataclass == "OrgDb") -->
-<!-- human <- orgs[orgs$species=="Homo sapiens"][[1]] -->
-<!-- columns(human) -->
-
-<!-- txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene -->
-<!-- columns(txdb) -->
-<!-- genes(txdb, columns=c("gene_id", "CDSNAME")) -->
-<!-- ``` -->
-
-Annotation file downloaded from `ftp://ftp.ensembl.org/pub/release-86/gtf/homo_sapiens/Homo_sapiens.GRCh38.86.gtf.gz`
-```{r}
-# rownames(peaks) <- paste("chr", rownames(peaks), sep="")
 chromosomes = c(1:22, "X", "Y")
 chromosomes = paste("chr", chromosomes, sep="")
 annotation.file <- "~/annotations/Homo_sapiens.GRCh38.86.gtf"
-
 ```
 
-I rewrite the function because it becomes more portable between gene annotations.
+I rewrite the Seurat function because it becomes more portable between gene annotations.
 
 ```{r}
 # Resize GenomicRanges upstream and or downstream
@@ -142,14 +120,14 @@ myCreateGeneActivityMatrix <- function( peak.matrix,
 countMat <- myCreateGeneActivityMatrix(peak.matrix = peaks, annotation.file = annotation.file, seq.levels = chromosomes,upstream = 2000)
 ```
 
-## Setup 
+### Setup Seurat object
 
 ```{r}
 thymus.atac <- CreateSeuratObject(counts = peaks, assay = "ATAC", project = "Thymus_ATAC")
 thymus.atac[["ACTIVITY"]] <- CreateAssayObject(counts = countMat)
 ```
 
-## Filter cells with little reads
+### Filter cells with little reads
 ```{r}
 data.frame(nCount = thymus.atac$nCount_ATAC) %>%
   ggplot(aes(nCount)) + geom_histogram(bins=500) +
@@ -173,87 +151,98 @@ data.frame(count_activity=thymus.atac$nCount_ACTIVITY, nFeature=thymus.atac$nFea
 ```
 
 
-## Preprocessing
-As the pedestrians 
+### Data Preprocessing
+
 ```{r}
 DefaultAssay(thymus.atac) <- "ACTIVITY"
-thymus.atac <- FindVariableFeatures(thymus.atac)
+# thymus.atac <- FindVariableFeatures(thymus.atac)
 thymus.atac <- NormalizeData(thymus.atac, normalization.method = "LogNormalize", scale.factor = 1000)
 thymus.atac <- ScaleData(thymus.atac)
+``` 
 
-# ## Normalize on sequencing depth
-# norm.activity <- 
-#   thymus.atac@assays$ACTIVITY@counts %>% 
-#   as.matrix() %>%
-#   {apply(., 2, function(x) x/sum(x))}
-# 
-# ## Log transform data 
-# log1p.norm.activity <- log1p(norm.activity)
-# 
-# hist(norm.activity)
-# hist(log1p(norm.activity))
-# ## Scale data
-# scaled.log1p.norm.activity <- norm.activity %>%
-#   t() %>%
-#   scale(center = TRUE, scale=TRUE) %>%
-#   t()
+<!-- ```{r, fig.height=10, fig.width=10} -->
+<!-- smp_var_genes <- sample(VariableFeatures(thymus.atac), 10) -->
+<!-- thymus.atac@assays$ACTIVITY@scale.data[c("CD4"),] %>% -->
+<!--   as.matrix() %>% -->
+<!--   melt(varnames=c("gene", "cell")) %>% -->
+<!--   ggplot(aes(value)) + -->
+<!--   geom_histogram(bins=100) + -->
+<!--   facet_wrap(gene~.)  -->
+<!-- ``` -->
 
-```
-
-```{r, fig.height=10, fig.width=10}
-smp_var_genes <- sample(VariableFeatures(thymus.atac), 10)
-thymus.atac@assays$ACTIVITY@scale.data[c("CD4"),] %>%
-  as.matrix() %>%
-  melt(varnames=c("gene", "cell")) %>%
-  ggplot(aes(value)) +
-  geom_histogram(bins=100) +
-  facet_wrap(gene~.) 
-```
-
-## Viz PCA
-```{r}
-thymus.atac <- RunPCA(thymus.atac, assay = "ACTIVITY", features = VariableFeatures(thymus.atac))
-
-DimPlot(thymus.atac, reduction = "pca")
-DimPlot(thymus.atac, reduction = "pca", dims = c(3,4))
-```
 
 ## Viz UMAP
-```{r}
-thymus.atac <- RunUMAP(thymus.atac, reduction="pca", dims=1:50)
-DimPlot(thymus.atac, reduction='umap')
-```
-```{r}
-marker_genes <- c('CD4','CD8A','CD8B','IFNG','EPCAM','MS4A1','RAG1','RORC','TBX21','CLEC9A')
-FeaturePlot(thymus.atac, reduction = "umap", features = marker_genes[6:10])
+Testing different feature selection methods (coverage VS variability)
+```{r, message=FALSE}
+DefaultAssay(thymus.atac) <- "ACTIVITY"
+
+## HVGs
+thymus.atac.vargenes <- FindVariableFeatures(thymus.atac)
+
+## Highly covered genes
+thymus.atac.covgenes <- thymus.atac
+VariableFeatures(thymus.atac.covgenes) <- names(which(Matrix::rowSums(thymus.atac.covgenes) > 100))
+
+## Intersection
+thymus.atac.varcovgenes <- thymus.atac
+thymus.atac.varcovgenes <- FindVariableFeatures(thymus.atac.varcovgenes)
+VariableFeatures(thymus.atac.varcovgenes) <- intersect(names(which(Matrix::rowSums(thymus.atac.covgenes) > 100)), VariableFeatures(thymus.atac.varcovgenes)) 
 ```
 
-## Visualize on peaks 
+Coverage of HVGs
 ```{r}
+gene.coverage <- Matrix::rowSums(thymus.atac@assays$ACTIVITY)
+gene.meanAcc <- Matrix::rowMeans(thymus.atac@assays$ACTIVITY)
+
+data.frame(cov=gene.coverage, gene=names(gene.coverage), meanAcc=gene.meanAcc) %>%
+  mutate(var=ifelse(gene %in% VariableFeatures(thymus.atac.vargenes), "HVG", "Non-HVG")) %>%
+  # mutate(var=ifelse(gene %in% VariableFeatures(thymus.atac.varcovgenes), "HVG", "Non-HVG")) %>%
+  ggplot(aes(fill=var, cov)) + 
+  geom_histogram(bins=50) +
+  facet_wrap(var~., scales="free_y", nrow=2, ncol=1)
+
+```
+
+```{r, echo=T}
+## Run embedding
+embed <- function(thymus.atac){
+  thymus.atac <- RunPCA(thymus.atac, assay = "ACTIVITY", verbose = F)
+  thymus.atac <- RunUMAP(thymus.atac, reduction="pca", dims=1:50)
+  return(thymus.atac)  
+}
+
+obj.list <- list(high.var=thymus.atac.vargenes, high.cov=thymus.atac.covgenes, high.var.cov = thymus.atac.varcovgenes)
+obj.list.umap <- map(obj.list, ~ embed(.x))
+imap(obj.list.umap, ~ DimPlot(.x, reduction='umap') + ggtitle(.y))
+```
+
+### Accessibility of marker genes 
+```{r}
+marker_genes <- c('CD4','CD8B','IFNG','KLRB1','AIRE','RAG1')
+FeaturePlot(obj.list.umap$high.var, reduction = "umap", features = marker_genes)
+```
+
+### Clustering 
+```{r}
+thymus.atac.vargenes <- FindNeighbors(thymus.atac.vargenes)
+thymus.atac.vargenes <- FindClusters(thymus.atac.vargenes)
+
+```
+```{r}
+DimPlot(thymus.atac.vargenes, reduction = "umap") +
+  ggtitle("louvain")
+```
+
+
+
+## Visualize UMAP on peaks (not gene activity)
+Using Latent Semantic Indexing (LSI) as proposed by Cusanovich et al. 2015.
+```{r, echo=TRUE}
 DefaultAssay(thymus.atac) <- "ATAC"
 VariableFeatures(thymus.atac) <- names(which(Matrix::rowSums(thymus.atac) > 100))
 thymus.atac <- RunLSI(thymus.atac, n = 50, scale.max = NULL)
 thymus.atac <- RunUMAP(thymus.atac, reduction = "lsi", dims = 1:50)
-```
 
-```{r}
-DimPlot(thymus.atac, reduction = "umap", group.by = "nFeature_ATAC")
-```
-```{r}
-marker_genes <- c('CD4','CD8A','CD8B','IFNG','EPCAM','MS4A1','RAG1','RORC','TBX21','CLEC9A')
-FeaturePlot(thymus.atac, reduction = "umap", features = nFeatures)
-```
-```{r}
-thymus.atac@assays$ACTIVITY@data[intersect(rownames(thymus.atac@assays$ACTIVITY@counts), smp_var_genes),] %>%
-  as.matrix %>%
-  melt(varnames=c('gene', 'cell')) %>%
-  ggplot(aes(value)) +
-  geom_histogram(bins=100)
-
-thymus.atac@assays$ACTIVITY@data[intersect(rownames(thymus.atac@assays$ACTIVITY@counts), marker_genes),] %>%
-  as.matrix %>%
-  melt(varnames=c('gene', 'cell')) %>%
-  ggplot(aes(value)) +
-  geom_histogram(bins=100)
+DimPlot(thymus.atac, reduction = "umap")
 ```
 
