@@ -117,7 +117,9 @@ myCreateGeneActivityMatrix <- function( peak.matrix,
 ```
 
 ```{r}
-countMat <- myCreateGeneActivityMatrix(peak.matrix = peaks, annotation.file = annotation.file, seq.levels = chromosomes,upstream = 2000)
+countMat <- myCreateGeneActivityMatrix(peak.matrix = peaks, annotation.file = annotation.file, seq.levels = chromosomes, upstream = 2000)
+
+saveRDS(object = countMat, "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.geneActivity.RDS")
 ```
 
 ### Setup Seurat object
@@ -221,6 +223,10 @@ imap(obj.list.umap, ~ DimPlot(.x, reduction='umap') + ggtitle(.y))
 marker_genes <- c('CD4','CD8B','IFNG','KLRB1','AIRE','RAG1')
 FeaturePlot(obj.list.umap$high.var, reduction = "umap", features = marker_genes)
 ```
+```{r}
+geneOI <- 'TOP2A'
+FeaturePlot(obj.list.umap$high.var, reduction = "umap", features = geneOI)
+```
 
 ### Clustering 
 ```{r}
@@ -244,5 +250,11 @@ thymus.atac <- RunLSI(thymus.atac, n = 50, scale.max = NULL)
 thymus.atac <- RunUMAP(thymus.atac, reduction = "lsi", dims = 1:50)
 
 DimPlot(thymus.atac, reduction = "umap")
+```
+
+## Save gene activity matrix
+```{r}
+DropletUtils::write10xCounts(path = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.geneActivity.hdf5",type = "HDF5", thymus.atac@assays$ACTIVITY@counts,
+               gene.symbol=rownames(thymus.atac@assays$ACTIVITY@counts), barcodes=colnames(thymus.atac@assays$ACTIVITY@counts))
 ```
 
