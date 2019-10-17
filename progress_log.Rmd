@@ -9,3 +9,20 @@ output: github_document
 
 - **ATAC-seq:** raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). For aligment with scRNA-seq data we need to reduce ATAC peaks to gene-level features. We do this as in the Seurat pipeline, summing all counts in peaks within gene bodies + 2kb upstream. 
 - **RNA-seq**
+
+## Feature selection
+- genes that are expressed only in a few cells 
+
+## Uniform output for all methods 
+- Impute transcriptomic data
+
+## Metrics for comparison of integration models
+
+1) Robustness to different methods of feature selection: HVGs in the RNA
+2) Robustness to different fractions of cells in ATAC dataset
+
+## Ideas for less "agnostic" integration
+
+1) Select only a certain lineage of cells (e.g. that you can align in pseudotime)
+2) Annotation of cell types also in ATAC-seq data (e.g. to use scGen)
+3) Considering enhancer accessibility (matching them to genes??)
