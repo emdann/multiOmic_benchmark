@@ -1,33 +1,34 @@
-Progress log
+Benchmarking methods for alignment of scRNA-sea and scATAC-seq data
 ================
 
-## GitHub Documents
+## Dataset details
 
-This is an R Markdown format used for publishing markdown documents to
-GitHub. When you click the **Knit** button all R code chunks are run and
-a markdown file (.md) suitable for publishing to GitHub is generated.
+## Data preprocessing
 
-## Including Code
+  - **ATAC-seq:** raw 10x sequencing reads were preprocessed to call
+    peaks with Cellranger (v …). For aligment with scRNA-seq data we
+    need to reduce ATAC peaks to gene-level features. We do this as in
+    the Seurat pipeline, summing all counts in peaks within gene bodies
+    + 2kb upstream.
+  - **RNA-seq**
 
-You can include R code in the document as follows:
+## Feature selection
 
-``` r
-summary(cars)
-```
+  - genes that are expressed only in a few cells
 
-    ##      speed           dist       
-    ##  Min.   : 4.0   Min.   :  2.00  
-    ##  1st Qu.:12.0   1st Qu.: 26.00  
-    ##  Median :15.0   Median : 36.00  
-    ##  Mean   :15.4   Mean   : 42.98  
-    ##  3rd Qu.:19.0   3rd Qu.: 56.00  
-    ##  Max.   :25.0   Max.   :120.00
+## Uniform output for all methods
 
-## Including Plots
+  - Impute transcriptomic data
 
-You can also embed plots, for example:
+## Metrics for comparison of integration models
 
-![](progress_log_files/figure-gfm/pressure-1.png)<!-- -->
+1)  Robustness to different methods of feature selection: HVGs in the
+    RNA
+2)  Robustness to different fractions of cells in ATAC dataset
 
-Note that the `echo = FALSE` parameter was added to the code chunk to
-prevent printing of the R code that generated the plot.
+## Ideas for less “agnostic” integration
+
+1)  Select only a certain lineage of cells (e.g. that you can align in
+    pseudotime)
+2)  Annotation of cell types also in ATAC-seq data (e.g. to use scGen)
+3)  Considering enhancer accessibility (matching them to genes??)
