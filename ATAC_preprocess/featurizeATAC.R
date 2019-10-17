@@ -178,10 +178,10 @@ matrixToCDS <- function(peak.matrix){
 # unnorm_ga2 <- unnorm_ga
 # cicero_gene_activities <- normalize_gene_activities(list(unnorm_ga, unnorm_ga2), 
 #                                                     num_genes)
-
-filtered_peak_h5_file = "~/my_data/filtered_peak_bc_matrix.h5"
-annotation.file <- "~/annotations/Homo_sapiens.GRCh38.86.gtf"
-
+# 
+# filtered_peak_h5_file = "~/my_data/filtered_peak_bc_matrix.h5"
+# annotation.file <- "~/annotations/Homo_sapiens.GRCh38.86.gtf"
+# 
 
 makeGeneActivity <- function(filtered_peak_h5_file, annotation_file, type="Seurat", save=FALSE, sample_name=NULL){
   peaks <- Read10X_h5(filtered_peak_h5_file)
