@@ -12,9 +12,19 @@ Benchmarking methods for alignment of scRNA-sea and scATAC-seq data
     + 2kb upstream.
   - **RNA-seq**
 
+Both datasets where preprocessed with std steps: removal of empty/lowQ
+cells, normalization per cell coverage,
+
 ## Feature selection
 
+  - Highly-variable genes in RNA
   - genes that are expressed only in a few cells
+
+## Tested integration methods
+
+  - **Seurat CCA**
+  - **LIGER**
+  - **SnapATAC pipeline**
 
 ## Uniform output for all methods
 

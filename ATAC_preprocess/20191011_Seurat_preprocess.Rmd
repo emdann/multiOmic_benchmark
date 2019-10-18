@@ -1,5 +1,5 @@
 ---
-title: "ATAC preprocessing with Seurat pipeline "
+title: "Thymus ATAC-seq preprocessing and EDA"
 output: html_notebook
 ---
 
@@ -13,6 +13,8 @@ library(pbapply)
 library(future)
 library(reshape2)
 })
+
+source("./featurizeATAC.R")
 ```
 
 Load peaks and create feature matrix. Annotation file downloaded from `ftp://ftp.ensembl.org/pub/release-86/gtf/homo_sapiens/Homo_sapiens.GRCh38.86.gtf.gz`. I transformed the gtf annotation file to comply with the UCSC annotation (starting with 'chr') (running `cat annotations/Homo_sapiens.GRCh38.98.abinitio.gtf | awk '{if(!/^ *#/) print "chr"$0; else print;}' > annotations/Homo_sapiens.GRCh38.98.abinitio.ucsc.gtf`)
