@@ -32,7 +32,7 @@ filterCells <- function(sce, nCounts=1000, nFeatures=600, fracMito=0.10){
 #' Normalize per cell
 normalizePerCell <- function(sce){
   counts <- assay(sce, "counts")
-  cpm <- apply(counts, 2, function(x) (x/sum(x))*1e-06)
+  cpm <- apply(counts, 2, function(x) (x/sum(x))*1e+06)
   cpm(sce) <- as(object = cpm, Class = "dgCMatrix")
   return(sce)
 }

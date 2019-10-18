@@ -1,0 +1,257 @@
+---
+title: "Testing LIGER"
+output: html_notebook
+---
+
+```{r}
+# library(devtools)
+# install_github('MacoskoLab/liger')
+library(tidyverse)
+library(liger)
+library(Rtsne)
+library(reshape2)
+library(ggrepel)
+```
+
+Testing LIGER for integration of scATAC and scRNA data. Following vignette from (gitHub)[https://macoskolab.github.io/liger/walkthrough_rna_atac.html].
+
+### 1. Download and load datasets: 
+ATAC data is preprocessed to gene-level features (no. of reads that overlap gene body and promoter for each gene). Data is downloaded from (here)[https://umich.app.box.com/s/5hkhpou4inrulo570yhc38ay8g3ont5b]
+```{r}
+rna_clusts = readRDS("~/10X_data/rna_cluster_assignments.RDS")
+atac_clusts = readRDS("~/10X_data/atac_cluster_assignments.RDS")
+pbmc.atac <- readRDS('~/10X_data/pbmc.atac.expression.mat.RDS')
+pbmc.rna <- readRDS('~/10X_data/pbmc.rna.expression.mat.RDS')
+```
+
+### 2. Create LIGER object
+List of count matrices as input. `createLiger` converts to sparseMatrices. 
+```{r}
+pbmc.data = list(atac=pbmc.atac[,names(atac_clusts)], rna=pbmc.rna[,names(rna_clusts)])
+int.pbmc <- createLiger(pbmc.data)
+
+```
+### 3. Data preprocessing
+```{r}
+## Normalize to column total (adj. for sequencing depth)
+int.pbmc <- normalize(int.pbmc)
+## Select highly variable genes ONLY IN THE RNA DATASET
+int.pbmc <- selectGenes(int.pbmc, datasets.use = 2)
+## Scale to the SD
+int.pbmc <- scaleNotCenter(int.pbmc)
+```
+
+### 4. Run NMF 
+
+```{r}
+int.pbmc <- optimizeALS(int.pbmc, k=20)
+```
+```{r}
+smp <- sample(1:nrow(int.pbmc@H$atac), size = 1000)
+smp_genes <- sample(1:length(int.pbmc@var.genes), size = 100)
+
+int.pbmc@W[,smp_genes] %>% heatmap(Rowv = NA)
+int.pbmc@V$atac[,smp_genes] %>% heatmap(Rowv = NA)
+```
+```{r}
+
+```
+
+### Align factor
+Dodgy quantile normalization
+```{r}
+int.pbmc <- quantileAlignSNF(int.pbmc)
+# saveRDS(int.pbmc, file = "~/10X_data/pbmc.trainedLIGER.RDS")
+int.pbmc <- readRDS(file = "~/my_data/10X_data/pbmc.trainedLIGER.RDS")
+```
+
+<!-- ### Visualize  -->
+<!-- ```{r} -->
+<!-- runMyTSNE <- function(object, use.raw = F, dims.use = 1:ncol(object@H.norm), use.pca = F, -->
+<!--                     perplexity = 30, theta = 0.5, method = 'Rtsne', fitsne.path = NULL, -->
+<!--                     rand.seed = 42) { -->
+<!--   data.use <- do.call(rbind, object@H)   -->
+<!--   set.seed(rand.seed) -->
+<!--   object@tsne.coords <- Rtsne(object@H.norm[, dims.use], pca = use.pca, check_duplicates = F, -->
+<!--                                 theta = theta, perplexity = perplexity)$Y -->
+<!--   rownames(object@tsne.coords) <- rownames(data.use) -->
+<!--   return(object) -->
+<!-- } -->
+
+```{r}
+smp_genes <- sample(1:2000,10)
+int.pbmc@scale.data$atac[,
+                         smp_genes] %>%
+  melt(varnames=c("cell", "gene")) %>%
+  ggplot(aes(value, color=gene)) + geom_histogram() +
+  facet_wrap(gene~.)
+
+int.pbmc@scale.data$rna[,
+                         smp_genes] %>%
+  melt(varnames=c("cell", "gene")) %>%
+  ggplot(aes(value, color=gene)) + geom_histogram() +
+  facet_wrap(gene~.)
+  
+```
+
+
+<!-- ``` -->
+
+### Visualize dataset-specific VS common latent factors
+
+Even in dataset specific component there is separation of cell types (Meaningful information that is ATAC specific?)
+
+```{r}
+
+atac.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@V$atac
+atac.common.comp <- int.pbmc@H$atac[smp,] %*% int.pbmc@W
+
+tsne.atac.comp <- Rtsne(atac.comp, pca=T, check_duplicates = F, theta=0.5, perplexity=10)
+rownames(tsne.atac.comp$Y) <- rownames(atac.comp)
+tsne.atac.common.comp <- Rtsne(atac.common.comp, pca=T, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.atac.common.comp$Y) <- rownames(atac.common.comp)
+
+
+tsne.atac.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=atac_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+tsne.atac.common.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=atac_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+```
+
+```{r}
+
+rna.comp <- int.pbmc@H$rna[smp,] %*% int.pbmc@V$rna
+rna.common.comp <- int.pbmc@H$rna[smp,] %*% int.pbmc@W
+
+tsne.rna.comp <- Rtsne(rna.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.rna.comp$Y) <- rownames(rna.comp)
+tsne.rna.common.comp <- Rtsne(rna.common.comp, pca=F, check_duplicates = F, theta=0.5, perplexity=30)
+rownames(tsne.rna.common.comp$Y) <- rownames(rna.common.comp)
+
+
+tsne.rna.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=rna_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+tsne.rna.common.comp$Y %>%
+  as.tibble(rownames="cell") %>%
+  mutate(clust=rna_clusts[cell]) %>%
+  ggplot(aes(V1, V2, color=clust)) + 
+  geom_point()
+
+```
+
+### Compare weights of dataset specific and common factors
+```{r}
+int.pbmc@W %>% 
+  melt(varnames = c("factor", "gene")) %>%
+  filter(factor==1) %>%
+  mutate(rank=rank(value)) %>%
+  ggplot(aes(rank, value)) + 
+  geom_point() +
+  geom_text_repel(data=. %>% filter(rank > 2300), aes(label=gene))
+```
+```{r}
+V_atac <- int.pbmc@V$atac 
+colnames(V_atac) <- colnames(int.pbmc@W)
+
+V_rna <- int.pbmc@V$rna
+colnames(V_rna) <- colnames(int.pbmc@W)
+
+V_atac %>% 
+  melt(varnames = c("factor", "gene")) %>%
+  filter(factor==1) %>%
+  mutate(rank=rank(value)) %>%
+  ggplot(aes(rank, value)) + 
+  geom_point() +
+  geom_text_repel(data=. %>% filter(rank > 2300), aes(label=gene)) +
+  ggtitle('top V ATAC')
+
+V_rna %>% 
+  melt(varnames = c("factor", "gene")) %>%
+  group_by(factor) %>%
+  mutate(rank=rank(value)) %>%
+  ungroup() %>%
+  ggplot(aes(rank, value)) + 
+  geom_point() +
+  # geom_text_repel(data=. %>% filter(rank > 2310), aes(label=gene)) +
+  facet_wrap(factor~.) +
+  ggtitle('top V ATAC')
+
+```
+```{r}
+genes.bc <- read.table(file = "../my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.genes_bc.bed", sep = "\t", as.is = c(1), header = FALSE)
+
+genes.bc
+```
+
+### Are HVGs in RNA low coverage in ATAC?
+```{r}
+
+long_atac_raw <- 
+  int.pbmc@raw.data$atac %>%
+  as.matrix() %>%
+  melt(varnames=c("gene", "cell")) %>%
+  mutate(var_gene=ifelse(gene %in% int.pbmc@var.genes, T, F)) 
+
+cell_smp <- sample(unique(long_atac_raw$cell), 500)
+gene_smp <- sample(unique(long_atac_raw$gene), 1000)
+
+long_atac_raw %>%
+  filter(gene %in% gene_smp & cell %in% cell_smp) %>%
+  ggplot(aes(value, fill=var_gene)) + 
+  geom_histogram(bins=100) +
+  facet_wrap(var_gene~., scales = "free_y") +
+  coord_cartesian(xlim=c(0,30))
+
+
+```
+
+```{r}
+long_atac_raw %>%
+  filter(gene %in% gene_smp & cell %in% cell_smp) %>%
+  mutate(zeroes=ifelse(value==0, T,F)) %>%
+  ggplot(aes(var_gene, fill=zeroes)) + 
+  geom_bar(position="fill")
+```
+
+
+### Evaluate feature selection for ATAC-seq data
+```{r}
+int.pbmc_hvg_rna <- selectGenes(int.pbmc, num.genes = 2000, datasets.use = 2)
+int.pbmc_hvg_atac <- selectGenes(int.pbmc, num.genes = 2000, datasets.use = 1)
+
+plot_meanAcc_hvgs <- function(int.pbmc){
+  gene_means <- 
+    int.pbmc@raw.data$atac %>%
+    rowMeans()
+  data.frame(meanAcc=gene_means, gene=names(gene_means)) %>%
+     mutate(var_gene=ifelse(gene %in% int.pbmc@var.genes, "HVG", "other")) %>%
+    ggplot(aes(fill=var_gene, meanAcc)) +
+    geom_histogram(bins=50) +
+    facet_wrap(var_gene~., scales="free_y", nrow=2, ncol=1)
+  }
+
+ggarrange(
+  plot_meanAcc_hvgs(int.pbmc_hvg_rna) + ggtitle("HVG RNA"),
+  plot_meanAcc_hvgs(int.pbmc_hvg_atac) + ggtitle("HVG ATAC"), common.legend = TRUE
+  )
+```
+
+
+
+
+
+
+
+

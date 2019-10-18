@@ -1,0 +1,41 @@
+---
+title: "Integration EDA"
+output: html_notebook
+---
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(SingleCellExperiment)
+library(MultiAssayExperiment)
+source("multiOmic_benchmark/selectFeatures.R")
+```
+
+Load integration output
+```{r}
+int.sce <- readRDS("")
+```
+
+
+```{r}
+# sce.list <- readRDS("my_data/integrated_thymus/F74_SCElist_20191017.RDS")
+# small.sce.list <- map(sce.list, ~ .x[, sample(1:6000, size = 2000)])
+# integrate_features <- HVG_Seurat(sce.list$RNA)
+# # transfer.anchors <- readRDS("models/F74_seuratCCA_20191017.RDS")
+# small.sce.list.integration <- integrate_seuratCCA(small.sce.list, integrate_features = integrate_features)
+
+merged.sce <- scater::runPCA(merged.sce, ncomponents=50, scale=TRUE, feature_set = integrate_features)
+merged.sce <- scater::runUMAP(merged.sce, use_dimred = "PCA", feature_set = integrate_features, n_neighbors = 30)
+umap.sce <- reducedDim(merged.sce, "UMAP")
+pca.sce <- reducedDim(merged.sce, "PCA")
+pca.sce %>% as_tibble(rownames="cell") %>%
+  left_join(as_tibble(colData(merged.sce), rownames="cell")) %>% 
+  ggplot(aes(PC1, PC2, color=tech)) +
+  geom_point(alpha=0.2)
+umap.sce %>% as_tibble(rownames="cell") %>%
+  left_join(as_tibble(colData(merged.sce), rownames="cell")) %>% 
+  ggplot(aes(V1, V2, color=tech)) +
+  geom_point(alpha=0.2)
+```
+
