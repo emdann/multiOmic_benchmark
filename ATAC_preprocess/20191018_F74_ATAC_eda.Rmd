@@ -1,0 +1,203 @@
+---
+title: "Thymus ATAC-seq preprocessing and EDA"
+output: html_notebook
+---
+
+```{r}
+suppressPackageStartupMessages({
+library(Seurat)
+library(tidyverse)
+library(SingleCellExperiment)
+library(scater)
+library(pbapply)
+library(future)
+library(reshape2)
+library(ggpubr)
+library(UpSetR)
+})
+
+source("~/multiOmic_benchmark/selectFeatures.R")
+```
+
+Load F74 datasets (preprocessed as in `makeSCElist.r`). Includes raw and processed ATAC-seq and RNA-seq dataset. ATAC-seq data was reduced to gene level features as in Seurat pipeline. 
+
+```{r}
+f74.sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191017.RDS")
+
+f74.atac <- f74.sce.list$ATAC
+f74.rna <- f74.sce.list$RNA
+```
+
+## Feature selection
+Compare betwen HVGs from ATAC and HVGs from RNA (i.e. genes used for cell type annotation)
+```{r}
+hvg.rna <- HVG_Seurat(f74.rna, nfeatures = 4000) %>% {.[. %in% rownames(f74.atac)]}
+hvg.atac <- HVG_Seurat(f74.atac, nfeatures = length(hvg.rna))
+
+upset(fromList(list(hvg.rna=hvg.rna, hvg.atac=hvg.atac)))
+```
+```{r, fig.width=10, fig.height=6}
+gene.coverage <- Matrix::rowSums(counts(f74.atac))
+
+hvg.atac.pl <- data.frame(cov=gene.coverage, gene=names(gene.coverage)) %>%
+  dplyr::mutate(var=ifelse(gene %in% hvg.atac, "HVG-ATAC", "Non-HVG")) %>%
+  # mutate(var=ifelse(gene %in% VariableFeatures(thymus.atac.varcovgenes), "HVG", "Non-HVG")) %>%
+  ggplot(aes(fill=var, cov)) + 
+  geom_histogram(bins=50) +
+  facet_wrap(var~., scales="free_y", nrow=2, ncol=1)
+
+hvg.rna.pl <- data.frame(cov=gene.coverage, gene=names(gene.coverage)) %>%
+  dplyr::mutate(var=ifelse(gene %in% hvg.rna, "HVG-RNA", "Non-HVG")) %>%
+  # mutate(var=ifelse(gene %in% VariableFeatures(thymus.atac.varcovgenes), "HVG", "Non-HVG")) %>%
+  ggplot(aes(fill=var, cov)) + 
+  geom_histogram(bins=50) +
+  facet_wrap(var~., scales="free_y", nrow=2, ncol=1)
+
+ggarrange(hvg.atac.pl, hvg.rna.pl, common.legend = TRUE)
+```
+
+## Dimensionality Reduction
+```{r}
+f74.atac.seu <- as.Seurat(f74.atac)
+f74.atac.seu <- ScaleData(f74.atac.seu, do.center = TRUE)
+f74.atac.seu <- RunPCA(f74.atac.seu, features = hvg.rna) 
+f74.atac.seu <- RunUMAP(f74.atac.seu, reduction = "pca", dims=1:30) 
+
+DimPlot(f74.atac.seu, reduction = "umap", group.by = NULL) + ggtitle("scRNA-seq HVGs") 
+```
+```{r}
+f74.atac.seu.atachvg <- as.Seurat(f74.atac)
+f74.atac.seu.atachvg <- ScaleData(f74.atac.seu.atachvg)
+f74.atac.seu.atachvg <- RunPCA(f74.atac.seu.atachvg, features = hvg.atac) 
+f74.atac.seu.atachvg <- RunUMAP(f74.atac.seu.atachvg, reduction = "pca", dims=1:30) 
+
+DimPlot(f74.atac.seu.atachvg, reduction = "umap") + ggtitle("scATAC-seq HVGs") 
+```
+
+## Clustering 
+```{r}
+f74.atac.seu <- FindNeighbors(f74.atac.seu)
+f74.atac.seu <- FindClusters(f74.atac.seu, algorithm = 4)
+
+DimPlot(f74.atac.seu, reduction = "umap", group.by = 'ident') + ggtitle("leiden")
+```
+
+```{r}
+f74.atac.seu.atachvg <- FindNeighbors(f74.atac.seu.atachvg)
+f74.atac.seu.atachvg <- FindClusters(f74.atac.seu.atachvg, algorithm = 4)
+
+DimPlot(f74.atac.seu.atachvg, reduction = "umap") + ggtitle("leiden")
+```
+
+## Accessibility of markers
+Provided by Cecilia
+```{r, fig.width=10, fig.height=10}
+FeaturePlot(f74.atac.seu, features = c('PTPRC','CD4','CD8A','CD8B','CD79A','FOXN1','EPCAM','PDGFRA','GNG4', 'FOXP3','RAG1','RAG2','PTCRA','IL7R','NKG7','CCR7'))
+```
+
+```{r, fig.width=10, fig.height=10}
+FeaturePlot(f74.atac.seu.atachvg, features = c('PTPRC','CD4','CD8A','CD8B','CD79A','FOXN1','EPCAM','PDGFRA','GNG4', 'FOXP3','RAG1','RAG2','PTCRA','IL7R','NKG7','CCR7'))
+```
+
+## Co-accessibility of markers
+
+Genes that are distinctive of the same clusters will tend to be co-expressed in the same cells. Hence, to test if marker genes show patterning also in accessibility, I calculate correlation of accessibility profiles of thymus development marker genes and compare co-accessibility with their correlation in gene expression. 
+
+```{r}
+markers <- c('PTPRC','CD4','CD8A','CD8B','CD79A','FOXN1','EPCAM','PDGFRA','GNG4',
+             'FOXP3','RAG1','RAG2','PTCRA','IL7R','NKG7','CCR7')
+markers <- intersect(markers, rownames(f74.atac.seu@assays$RNA@counts))
+
+## Calculate co-accessibility of marker genes
+marker.cormat.atac <- 
+  f74.atac.seu@assays$RNA@scale.data[markers,] %>%
+  as.matrix() %>%
+  t() %>%
+  cor(use="pairwise.complete.obs")
+
+## Same on RNA
+f74.rna.seu <- as.Seurat(f74.rna)
+f74.rna.seu <- ScaleData(f74.rna.seu)
+marker.cormat.rna <- 
+  f74.rna.seu@assays$RNA@scale.data[markers,] %>%
+  as.matrix() %>%
+  t() %>%
+  cor(use="pairwise.complete.obs")
+```
+
+We can see that the co-accessibility signal is much weaker than the co-expression signal, but these are significantly correlated.
+
+```{r}
+pheatmap::pheatmap(marker.cormat.atac, main="co-accessibility")
+pheatmap::pheatmap(marker.cormat.rna, main="co-expression")
+```
+```{r}
+long.cormat.atac <- 
+  melt(marker.cormat.atac, value.name = "cor.accessibility") %>% 
+  distinct(cor.accessibility, .keep_all = T) %>%
+  unite("pair", c("Var1", "Var2"))
+
+long.cormat.rna <- 
+  melt(marker.cormat.rna, value.name = "cor.gex") %>% 
+  distinct(cor.gex, .keep_all = T) %>%
+  unite("pair", c("Var1", "Var2"))
+
+
+full_join(long.cormat.atac, long.cormat.rna) %>%
+  dplyr::filter(cor.accessibility!=1) %>%
+  ggplot(aes(cor.accessibility, cor.gex)) +
+  geom_point(alpha=0.5) +
+  geom_vline(linetype=2, xintercept = 0) +
+  geom_hline(linetype=2, yintercept = 0) +
+  stat_cor() +
+  ggtitle("Thymus marker genes")
+
+```
+
+Visualize some of the strong co-accessible markers
+```{r, fig.width=10, fig.height=5}
+p1 <- FeatureScatter(f74.atac.seu, feature1 = "RAG1", feature2 = "RAG2", slot = "scale.data", smooth=TRUE)
+p2 <- FeatureScatter(f74.rna.seu, feature1 = "RAG1", feature2 = "RAG2", slot = "scale.data", smooth=TRUE)
+
+CombinePlots(plots=list(p1, p2))
+```
+
+Control w random genes 
+```{r}
+
+random <- sample(hvg.rna, size = 100)
+random.cormat.atac <- 
+  f74.atac.seu@assays$RNA@scale.data[random,] %>%
+  as.matrix() %>%
+  t() %>%
+  cor(use="pairwise.complete.obs")
+
+## Same on RNA
+random.cormat.rna <- 
+  f74.rna.seu@assays$RNA@scale.data[random,] %>%
+  as.matrix() %>%
+  t() %>%
+  cor(use="pairwise.complete.obs")
+
+long.random.cormat.atac <- 
+  melt(random.cormat.atac, value.name = "cor.accessibility") %>% 
+  distinct(cor.accessibility, .keep_all = T) %>%
+  unite("pair", c("Var1", "Var2"))
+
+long.random.cormat.rna <- 
+  melt(random.cormat.rna, value.name = "cor.gex") %>% 
+  distinct(cor.gex, .keep_all = T) %>%
+  unite("pair", c("Var1", "Var2"))
+
+
+full_join(long.random.cormat.atac, long.random.cormat.rna) %>%
+  dplyr::filter(cor.accessibility!=1) %>%
+  ggplot(aes(cor.accessibility, cor.gex)) +
+  geom_point(alpha=0.5) +
+  geom_vline(linetype=2, xintercept = 0) +
+  geom_hline(linetype=2, yintercept = 0) +
+  stat_cor() +
+  ggtitle("Random HV genes")
+
+
+```

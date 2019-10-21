@@ -21,6 +21,7 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 - **Seurat CCA**
 - **LIGER**
 - **SnapATAC pipeline**
+- 
 
 ## Uniform output for all methods 
 - Impute transcriptomic data
