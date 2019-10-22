@@ -18,18 +18,29 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 
 ## Tested integration methods 
 
-- **Seurat CCA**
-- **LIGER**
-- **SnapATAC pipeline**
-- 
+- **Seurat CCA**:
+  - select K?
+- **LIGER:**
+  - K factors
+  - Imputation strategy: projecting ATAC cells on NMF factor space. Testing if this is a valid imputation strategy using scRNA-seq data only 
+- **SnapATAC pipeline:** it just wraps CCA alignment
+- **scGen:** requires cell type annotation also on the ATAC dataset
+- **totalVI:** ??
+
 
 ## Uniform output for all methods 
 - Impute transcriptomic data
 
 ## Metrics for comparison of integration models
 
+Problems: finding optimal distance metric for gene accessibility and expression (correlation doesn't work, too sparse) 
+
 1) Robustness to different methods of feature selection: HVGs in the RNA
 2) Robustness to different fractions of cells in ATAC dataset
+3) Leave-one-out approach for imputed data
+4) Fraction of unassigned cells (but how to distinguish unassigned and badly assigned?)
+5) Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies
+6) Robustness to parameter picking (e.g. no. of factors)
 
 ## Ideas for less "agnostic" integration
 

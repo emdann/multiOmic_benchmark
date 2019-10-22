@@ -22,9 +22,13 @@ cells, normalization per cell coverage,
 
 ## Tested integration methods
 
-  - **Seurat CCA**
-  - **LIGER**
-  - **SnapATAC pipeline**
+  - **Seurat CCA**:
+      - select K?
+  - **LIGER:**
+      - K factors
+      - KNNs for imputation
+  - **SnapATAC pipeline:** it just wraps CCA alignment
+  - **scGen:** requires cell type annotation also on the ATAC dataset
 
 ## Uniform output for all methods
 

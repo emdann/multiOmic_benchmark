@@ -31,7 +31,8 @@ f74.rna <- f74.sce.list$RNA
 ## Feature selection
 Compare betwen HVGs from ATAC and HVGs from RNA (i.e. genes used for cell type annotation)
 ```{r}
-hvg.rna <- HVG_Seurat(f74.rna, nfeatures = 4000) %>% {.[. %in% rownames(f74.atac)]}
+n_features = 4000
+hvg.rna <- HVG_Seurat(f74.sce.list[["RNA"]], nfeatures = n_features) %>% {.[. %in% rownames(f74.sce.list[["ATAC"]])]}
 hvg.atac <- HVG_Seurat(f74.atac, nfeatures = length(hvg.rna))
 
 upset(fromList(list(hvg.rna=hvg.rna, hvg.atac=hvg.atac)))
@@ -201,3 +202,50 @@ full_join(long.random.cormat.atac, long.random.cormat.rna) %>%
 
 
 ```
+
+## Fibroblasts markers
+PDGFRA is not in the ATAC gene activity matrix (not covered enough?), so I check for genes with high co-expression with PDGFRA in RNA.
+
+
+```{r, fig.height=8, fig.width=8}
+fb_markers <- c("PDGFRA")
+
+pdgfra.x <- f74.rna.seu@assays$RNA@scale.data["PDGFRA",]
+pdgfra.cor <- apply(f74.rna.seu@assays$RNA@scale.data[hvg.rna,], 1, function(x) cor(x=x, y=pdgfra.x, use="complete.obs"))
+
+fb_markers_atac <- pdgfra.cor[which(pdgfra.cor > 0.7)]
+
+FeaturePlot(f74.atac.seu, features = names(fb_markers_atac)) 
+
+```
+
+Compare with expression in RNA
+```{r, fig.height=8, fig.width=8}
+f74.rna.seu <- ScaleData(f74.rna.seu, features = hvg.rna)
+
+f74.rna.seu <- RunPCA(f74.rna.seu, features = hvg.rna) 
+f74.rna.seu <- RunUMAP(f74.rna.seu, reduction = "pca", dims=1:30) 
+
+FeaturePlot(f74.rna.seu, features = c(names(fb_markers_atac), "PDGFRA")) 
+  ggsave("~/Fb_markers_RNA.pdf", height = 10, width=10)
+```
+```{r, fig.width=15, fig.height=10}
+Seurat::VlnPlot(f74.atac.seu, features = c("MMP2", "COL12A1", "PLAT", "NTRK2"), slot = "data", ncol = 2)  
+```
+
+
+
+## Output clusters & UMAP coordinates for Daniel
+```{r}
+clusters_df <- f74.atac.seu@meta.data %>%
+  as_tibble(rownames="cell") %>%
+  select(cell, seurat_clusters)
+
+umap_df <- 
+  f74.atac.seu@reductions$umap@cell.embeddings %>%
+  as_tibble(rownames="cell")
+
+full_join(clusters_df, umap_df) %>%
+  write_csv("~/my_data/integrated_thymus/F74_ATAC_clustersUMAP_20191021.csv")
+```
+
