@@ -269,7 +269,7 @@ plot.marker <- function(int.df, feature.oi){
     group_by(tech) %>%
     dplyr::arrange(log.value) %>%
     ungroup() %>%
-    filter(tech=="RNA") %>%
+    dplyr::filter(tech=="RNA") %>%
     ggplot(aes(UMAP_1, UMAP_2, color=log.value)) +
     geom_point(size=0.3) +
     facet_wrap(tech~.) +
@@ -284,7 +284,7 @@ plot.marker <- function(int.df, feature.oi){
     group_by(tech) %>%
     dplyr::arrange(log.value) %>%
     ungroup() %>%
-    filter(tech=="ATAC") %>%
+    dplyr::filter(tech=="ATAC") %>%
     ggplot(aes(UMAP_1, UMAP_2, color=log.value)) +
     geom_point(size=0.3) +
     facet_wrap(tech~.) +
@@ -314,7 +314,7 @@ plotImputedExpression <- function(feature.oi, method){
   if (method=="liger") {
     Y.impute <- Y.impute.liger
     int.df <- liger.df
-  } else if (methods =="cca") {
+  } else if (method =="cca") {
     Y.impute <- Y.impute.cca
     int.df <- cca.df
   }
@@ -343,7 +343,13 @@ plotImputedExpression <- function(feature.oi, method){
       ggtitle(feature.oi) +
       theme_cowplot()
   ggarrange(pl1, pl2)
-  }
+}
+
+plotImputedExpression("MMP2", "liger") + ggsave("~/output/MMP2_imputed_liger.jpeg", height = 4, width=8)
+plotImputedExpression("MMP2", "cca") + ggsave("~/output/MMP2_imputed_cca.jpeg", height = 4, width=8)
+
+plotImputedExpression("HLA-DRA", "liger") + ggsave("~/output/HLADRA_imputed_liger.jpeg", height = 4, width=8)
+plotImputedExpression("HLA-DRA", "cca") + ggsave("~/output/HLADRA_imputed_cca.jpeg", height = 4, width=8)
 ```
 
 
@@ -436,8 +442,11 @@ ggpubr::ggarrange(cor_pl1, cor_pl2)
 ```
 
 ```{r}
-plot.marker(cca.df, "HLA-DRA")
-plot.marker(liger.df, "HLA-DRA")
+plot.marker(cca.df, "MMP2") + ggsave("~/output/MMP2_real_cca.jpeg", height = 4, width = 8)
+plot.marker(liger.df, "MMP2") + ggsave("~/output/MMP2_real_liger.jpeg", height = 4, width = 8)
+
+plot.marker(cca.df, "HLA-DRA") + ggsave("~/output/HLADRA_real_cca.jpeg", height = 4, width = 8)
+plot.marker(liger.df, "HLA-DRA") + ggsave("~/output/HLADRA_real_liger.jpeg", height = 4, width = 8)
 ```
 ```{r}
 plot.marker(cca.df, "CD74")
@@ -447,8 +456,11 @@ plot.marker(liger.df, "CD74")
 
 ## PCA on integrated space
 ```{r}
-DimPlot(int.liger.seu, reduction = "pca", group.by = "tech", dims = 1:2)
-DimPlot(int.cca.seu, reduction = "pca", group.by = "tech", dims = 1:2)
+pl1 <- DimPlot(int.liger.seu, reduction = "pca", group.by = "tech", dims = 1:2)
+pl2 <- DimPlot(int.cca.seu, reduction = "pca", group.by = "tech", dims = 1:2)
+
+ggarrange(pl1 + ggtitle("LIGER"), pl2 + ggtitle("CCA")) +
+  ggsave("~/output/LIGER_vs_CCA_pca.jpeg", height = 6, width = 12)
 ```
 
 ```{r}
