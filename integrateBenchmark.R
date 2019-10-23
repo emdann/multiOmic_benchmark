@@ -8,7 +8,7 @@ library(liger)
 library(SingleCellExperiment)
 library(MultiAssayExperiment)
 library(magrittr)
-source("multiOmic_benchmark/selectFeatures.R")
+source("~/multiOmic_benchmark/selectFeatures.R")
 
 ### Wrapper function ###
 run_integration <- function(sce.list, method, n_features, reference="RNA", query="ATAC"){
@@ -100,7 +100,7 @@ integrate_liger <- function(sce.list, integrate_features, reference="RNA", query
   # Y_ref_cells <- H_ref_cells %*% (V_ref + W)
   # Y_ref_cells <- H_ref_cells %*% (W)
   # Y_query_cells <- H_query_cells %*% (V_ref + W)
-  Y_impute <- H.norm %*% (W + V_ref) ## Using the normalized factor matrix
+  Y_impute <- H_ref_cells %*% (W + V_ref) ## Using the normalized factor matrix
     
   # Y_all <- rbind(Y_ref, Y_query_cells)
   # 

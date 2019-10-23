@@ -26,9 +26,13 @@ cells, normalization per cell coverage,
       - select K?
   - **LIGER:**
       - K factors
-      - KNNs for imputation
+      - Imputation strategy: projecting ATAC cells on NMF factor space.
+        Testing if this is a valid imputation strategy using scRNA-seq
+        data only
   - **SnapATAC pipeline:** it just wraps CCA alignment
   - **scGen:** requires cell type annotation also on the ATAC dataset
+  - **totalVI:** ??
+  - **BBKNN**
 
 ## Uniform output for all methods
 
@@ -36,9 +40,30 @@ cells, normalization per cell coverage,
 
 ## Metrics for comparison of integration models
 
+Problems: finding optimal distance metric for gene accessibility and
+expression (correlation doesn’t work, too sparse). (Or more general: how
+to relate features from different datasets) Nearest neighbors in PCA?
+How to make a nearest neighbor graph between modalities - MNN cosine
+normalizes each batch and then calculates distances
+
+  - PCA on integrated space and find genes with high eigen values
+  - How to denoise the ATAC data??
+
+<!-- end list -->
+
 1)  Robustness to different methods of feature selection: HVGs in the
     RNA
 2)  Robustness to different fractions of cells in ATAC dataset
+3)  Leave-one-out approach for imputed data
+4)  *Fraction of unassigned cells* (but how to distinguish unassigned
+    and badly assigned?)
+5)  *Joint clustering: purity of cell type annotation inside a cluster,
+    mixing within the same cluster between different technologies*
+6)  *Robustness to parameter picking (e.g. no. of factors)*
+7)  Agreement meric defined by Butler et al. 2018: compare KNN graph of
+    single datasets with KNN graph in integrated space, then calculate
+    how many of each cell’s NNs in the single dataset graph are also NNs
+    in the integrated graph
 
 ## Ideas for less “agnostic” integration
 
