@@ -10,13 +10,14 @@ library(Seurat)
 library(SingleCellExperiment)
 library(ggpubr)
 library(cowplot)
+library(reshape2)
 source("~/multiOmic_benchmark/utils.R")
 
 theme_set(theme_bw(base_size = 16))
 
 ## Make output directory
-dir.exists("~/multiOmic_benchmark/output/")
-ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
+outdir <- "~/multiOmic_benchmark/output/JointClustering_20191024/"
+ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
 ```
 
 ## Load integration output
@@ -68,7 +69,7 @@ int.seu.list <- list(liger=int.liger.seu, cca=int.cca.seu)
 ## Find clusters with leiden algorithm
 int.seu.list <-
   map(int.seu.list, ~ FindNeighbors(.x, verbose = TRUE)) %>%
-  map(~ FindClusters(.x, algorithm = 4))
+  map(~ FindClusters(.x, algorithm = 4, resolution = 1))
 
 # ## Extract clusters & metadata
 # int.seu.list %>%
@@ -76,7 +77,7 @@ int.seu.list <-
 
 ## Plot
 ggarrange(plotlist=imap(int.seu.list, ~ DimPlot(.x, reduction = "umap") + ggtitle(.y))) +
-  ggsave("~/multiOmic_benchmark/output/")
+  ggsave(paste0(outdir, "UMAP_clustering.png"), height=6, width=12)
 ```
 
 
@@ -86,13 +87,14 @@ imap(int.seu.list, ~ .x@meta.data %>% mutate(method=.y)) %>%
   purrr::reduce(bind_rows) %>%
   ggplot(aes(seurat_clusters)) +
   geom_bar(aes(fill=tech)) +
-  facet_grid(method~.)
+  facet_grid(method~.) +
+  ggsave(paste0(outdir, "clusters_by_tech.png"), height=6, width=12)
 ```
 
 
 ## Agreement metric
 Defined by Welch et al. 2019. Calculating how many of each cell’s nearest neighbors in the graphs built from the separate low-dimensional representations are also nearest neighbors in the graphs built from the integrated low-dimensional representations.
-```{r}
+```{r, message=FALSE, warning=FALSE}
 ## Find neighbors in single datasets 
 sce.list <- as.list(int.cca$intOut[,,c("RNA", "ATAC")]@ExperimentList)
 
@@ -122,14 +124,36 @@ calculateAgreement <- function(int.seu, k=20){
   nn.list.int <- getNNlist(int.seu)
   
   ## Find overlap between KNN graphs
-  common_nns <- map(names(single.dataset.nn), ~ sum(nn.list.int[[.x]] %in% single.dataset.nn[[.x]])) %>% purrr::reduce(sum) 
-  agreement.score <- {common_nns/(k*length(single.dataset.nn))}
-  return(agreement.score)
+  # common_nns <- map(names(single.dataset.nn), ~ sum(nn.list.int[[.x]] %in% single.dataset.nn[[.x]])) %>% purrr::reduce(sum) 
+  common_nns <- map_dbl(names(single.dataset.nn), ~ sum(nn.list.int[[.x]] %in% single.dataset.nn[[.x]])) %>%
+    set_names(names(single.dataset.nn))
+  agreement.score <- {sum(common_nns)/(k*length(single.dataset.nn))}
+  return(list(common_nns, agreement.score))
   }
 
 
-liger.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$liger, k=10))
-cca.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, k=10))
+# liger.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$liger, k=10))
+# cca.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, k=10))
+
+liger.agr.k20 <- calculateAgreement(int.seu = int.seu.list$liger, k=20)
+cca.agr.k20 <- calculateAgreement(int.seu = int.seu.list$cca, k=20)
+
+pl1 <- data.frame(sharedNNs_per_cell = liger.agr.k20[[1]], cell=names(liger.agr.k20[[1]])) %>%
+  mutate(tech=ifelse(str_detect(cell, "_"), "RNA", "ATAC")) %>%
+  ggplot(aes(sharedNNs_per_cell, fill=tech)) + geom_histogram() +
+  facet_wrap(tech~.) +
+    xlim(0,20) +
+  ggtitle("LIGER (k=20)",subtitle = paste("Agreement score =", round(liger.agr.k20[[2]], 2))) 
+
+pl2 <- data.frame(sharedNNs_per_cell = cca.agr.k20[[1]], cell=names(cca.agr.k20[[1]])) %>%
+  mutate(tech=ifelse(str_detect(cell, "_"), "RNA", "ATAC")) %>%
+  ggplot(aes(sharedNNs_per_cell, fill=tech)) + geom_histogram() +
+  facet_wrap(tech~.) +
+  xlim(0,20) +
+  ggtitle("CCA (k=20)",subtitle = paste("Agreement score =", round(cca.agr.k20[[2]], 2)))
+
+ggarrange(pl1, pl2, nrow=2) +
+  ggsave(paste0(outdir, "agreement_k20.png"), height = 8, width=8)
 
 ```
 
@@ -138,8 +162,144 @@ cca.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, k=10))
 ```
 
 ## Purity of annotated cell types in clusters 
+```{r}
+annotation.df <- read.csv("~/my_data/F74_RNA_obs.csv")
+annotation.df <- annotation.df %>%
+  mutate(cell=str_remove(as.character(X), "F74_1_") %>% str_c(ifelse(batch==0,'_1', "_2"))) 
+
+cell.type.pal <- brewer_palette_4_values(unique(annotation.df$annotation), palette = "Accent")
+
+int.liger.seu@meta.data %<>%
+  rownames_to_column("cell") %>%
+  left_join(annotation.df, by="cell") 
+int.liger.seu@meta.data %<>% column_to_rownames("cell")
+
+int.cca.seu@meta.data %<>%
+  rownames_to_column("cell") %>%
+  left_join(annotation.df, by="cell") 
+int.cca.seu@meta.data %<>% column_to_rownames("cell")
+
+DimPlot(int.liger.seu, reduction = "umap", group.by="annotation", cols = cell.type.pal)
+DimPlot(int.cca.seu, reduction = "umap", group.by="annotation")
+```
+
+
+```{r, fig.width=12, fig.height=10, warning=FALSE, message=FALSE}
+imap(int.seu.list, ~ .x@meta.data %>%
+       rownames_to_column("cell") %>%
+       left_join(annotation.df, by="cell") %>%
+       column_to_rownames("cell") %>%
+        ggplot(aes(fill=annotation, x=as.factor(seurat_clusters))) +
+        geom_bar(position="fill") +
+        ggtitle(.y) +
+       coord_flip() +
+       scale_color_brewer()
+  )
+
+imap(int.seu.list, ~ .x@meta.data %>%
+       rownames_to_column("cell") %>%
+       left_join(annotation.df, by="cell") %>%
+       column_to_rownames("cell") %>%
+       group_by(seurat_clusters) %>%
+       mutate(n_clusters=n()) %>%
+       ungroup() %>%
+       group_by(annotation, seurat_clusters) %>%
+       mutate(count=n()) %>%
+       ungroup() %>%
+       mutate(frac=count/n_clusters) %>%
+       filter(!is.na(annotation)) %>%
+        ggplot(aes(y=annotation, x=as.factor(seurat_clusters), color=frac, size=frac)) +
+       geom_point() +
+       scale_color_gradient(low="grey70", high="red") +
+       #  geom_bar(position="fill") +
+        ggtitle(.y) 
+       # coord_flip() +
+       # scale_color_brewer()
+  )
 
 
 
+```
+Calculate cluster purity: 
+
+- Find most abundant cell type per cluster
+- calculate fraction of cells of that cell type in the cluster (excluding ATAC cells w no assignment)
+
+```{r, fig.width=10, fig.height=5}
+clusterPurity <- function(meta.data){
+  meta.data %>%
+       rownames_to_column("cell") %>%
+       left_join(annotation.df, by="cell") %>%
+       column_to_rownames("cell")  %>%
+    filter(!is.na(annotation)) %>%
+    select(tech, seurat_clusters, annotation) %>%
+    group_by(seurat_clusters, annotation) %>%
+    mutate(n_cell_type=n()) %>%
+    ungroup() %>%
+    group_by(seurat_clusters) %>%
+    summarise(n_cluster=n(),
+              cluster.cell.type=annotation[max(n_cell_type)],
+              n_cell_type=max(n_cell_type)) %>%
+    mutate(frac=n_cell_type/n_cluster) 
+}
+
+clusterPurity(int.seu.list$cca@meta.data) %>%
+  arrange(-frac) %>%
+  mutate(seurat_clusters=factor(seurat_clusters, levels=unique(seurat_clusters))) %>%
+  ggplot(aes(seurat_clusters, frac, fill=cluster.cell.type)) +
+  geom_col() +
+  scale_fill_manual(values = cell.type.pal) +
+  ggtitle("CCA")
+
+clusterPurity(int.seu.list$liger) %>%
+  arrange(-frac) %>%
+  mutate(seurat_clusters=factor(seurat_clusters, levels=unique(seurat_clusters))) %>%
+  ggplot(aes(seurat_clusters, frac, fill=cluster.cell.type)) +
+  geom_col() +
+  scale_fill_manual(values = cell.type.pal) +
+  ggtitle("LIGER")
+
+```
+
+Calculate purity w different clustering modularity
+```{r}
+for (res in seq(0.2, 1, 0.2)) {
+  print(paste("Resolution=", res))
+  int.seu.list <- map(int.seu.list, ~ FindClusters(.x, algorithm = 4, resolution = res))
+}
+
+int.seu.list$liger@meta.data %>%
+  rownames_to_column("cell") %>%
+  pivot_longer(cols = str_subset(colnames(int.seu.list$liger@meta.data),"snn"), names_to = "res", values_to = "cluster") %>%
+  mutate(res=as.numeric(str_remove(res,"RNA_snn_res."))) %>%
+  select(-seurat_clusters) %>%
+  dplyr::rename(seurat_clusters = cluster) %>%
+  split(.$res) %>%
+  imap( ~ column_to_rownames(.x, "cell")) %>%
+  imap( ~ clusterPurity(.x) %>% mutate(res=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  ggplot(aes(res, frac)) +
+  geom_violin() +
+  geom_boxplot(width=0.2) +
+  geom_jitter() 
+
+int.seu.list$cca@meta.data %>%
+  rownames_to_column("cell") %>%
+  pivot_longer(cols = str_subset(colnames(int.seu.list$liger@meta.data),"snn"), names_to = "res", values_to = "cluster") %>%
+  mutate(res=as.numeric(str_remove(res,"RNA_snn_res."))) %>%
+  select(-seurat_clusters) %>%
+  dplyr::rename(seurat_clusters = cluster) %>%
+  split(.$res) %>%
+  imap( ~ column_to_rownames(.x, "cell")) %>%
+  imap( ~ clusterPurity(.x) %>% mutate(res=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  ggplot(aes(res, frac)) +
+  geom_violin() +
+  geom_boxplot(width=0.2) +
+  geom_jitter() 
+  
+
+
+```
 
 
