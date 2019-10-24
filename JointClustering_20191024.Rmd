@@ -1,0 +1,145 @@
+---
+title: "Joint clustering analyis"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(Seurat)
+library(SingleCellExperiment)
+library(ggpubr)
+library(cowplot)
+source("~/multiOmic_benchmark/utils.R")
+
+theme_set(theme_bw(base_size = 16))
+
+## Make output directory
+dir.exists("~/multiOmic_benchmark/output/")
+ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
+```
+
+## Load integration output
+```{r}
+int.cca <- readRDS("~/models/integrateCCA_F74_SCElist_20191017.RDS")
+int.liger <- readRDS("~/models/integrateliger_F74_SCElist_20191017.RDS")
+
+int.features <- int.cca$misc$transfer.anchors@anchor.features
+```
+
+Temporary fix
+```{r}
+H <- int.liger[["misc"]]$H
+H.norm <- int.liger[["misc"]]$H.norm
+
+W <- int.liger[["misc"]]$W
+V <- int.liger[["misc"]]$V
+
+Y.hnorm.project <- H.norm %*% (W + V$RNA)
+
+normcounts(int.liger$intOut[["integrated.RNA"]]) <- t(Y.hnorm.project) ## Temporary fix
+```
+
+## Co-embedding and joint clustering 
+
+```{r}
+## Make Seurat objects
+int.cca.seu <- intOutput2seurat(int.cca$intOut, int.features)
+int.liger.seu <- intOutput2seurat(int.liger$intOut, int.features = int.features)
+
+## Co-embedding
+int.cca.seu <- ScaleData(int.cca.seu, features = int.features)
+int.cca.seu <- RunPCA(int.cca.seu)
+int.cca.seu <- RunUMAP(int.cca.seu, reduction="pca", dims=1:50)
+
+int.liger.seu <- ScaleData(int.liger.seu, features = int.features)
+int.liger.seu <- RunPCA(int.liger.seu)
+int.liger.seu <- RunUMAP(int.liger.seu, reduction="pca", dims=1:50)
+
+p1 <- DimPlot(int.liger.seu, reduction = "umap", group.by="tech") + ggtitle("LIGER")
+p2 <- DimPlot(int.cca.seu, reduction = "umap", group.by="tech") + ggtitle("CCA")
+
+ggpubr::ggarrange(p1, p2, common.legend = TRUE) 
+```
+
+```{r, fig.width=14, fig.height=6}
+int.seu.list <- list(liger=int.liger.seu, cca=int.cca.seu)
+
+## Find clusters with leiden algorithm
+int.seu.list <-
+  map(int.seu.list, ~ FindNeighbors(.x, verbose = TRUE)) %>%
+  map(~ FindClusters(.x, algorithm = 4))
+
+# ## Extract clusters & metadata
+# int.seu.list %>%
+#   map(~ .x@meta.data)
+
+## Plot
+ggarrange(plotlist=imap(int.seu.list, ~ DimPlot(.x, reduction = "umap") + ggtitle(.y))) +
+  ggsave("~/multiOmic_benchmark/output/")
+```
+
+
+## Mixing between technologies
+```{r, fig.width=12, fig.height=7}
+imap(int.seu.list, ~ .x@meta.data %>% mutate(method=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  ggplot(aes(seurat_clusters)) +
+  geom_bar(aes(fill=tech)) +
+  facet_grid(method~.)
+```
+
+
+## Agreement metric
+Defined by Welch et al. 2019. Calculating how many of each cell’s nearest neighbors in the graphs built from the separate low-dimensional representations are also nearest neighbors in the graphs built from the integrated low-dimensional representations.
+```{r}
+## Find neighbors in single datasets 
+sce.list <- as.list(int.cca$intOut[,,c("RNA", "ATAC")]@ExperimentList)
+
+seu.list <- 
+  sce.list %>% 
+  map(~ as.Seurat(.x)) %>%
+  map(~ ScaleData(.x, do.center=TRUE, features=int.features)) %>%
+  map(~ RunPCA(.x, features=int.features))
+
+getNNlist <- function(seurat.obj){
+    seurat.obj@graphs$RNA_nn %>%
+    apply(1, function(x) names(which(x==1))) %>%
+    asplit(2)
+  }
+
+calculateAgreement <- function(int.seu, k=20){
+  ## Find single dataset KNN graph
+  seu.list <- 
+    seu.list %>%
+    map(~ FindNeighbors(.x, k.param = k))
+  
+  seu.list.nn <- map(seu.list, ~ getNNlist(.x)) 
+  single.dataset.nn <- purrr::reduce(seu.list.nn, c)
+  
+  ## Find integrated KNN graph
+  int.seu <- FindNeighbors(int.seu, k.param = k)
+  nn.list.int <- getNNlist(int.seu)
+  
+  ## Find overlap between KNN graphs
+  common_nns <- map(names(single.dataset.nn), ~ sum(nn.list.int[[.x]] %in% single.dataset.nn[[.x]])) %>% purrr::reduce(sum) 
+  agreement.score <- {common_nns/(k*length(single.dataset.nn))}
+  return(agreement.score)
+  }
+
+
+liger.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$liger, k=10))
+cca.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, k=10))
+
+```
+
+```{r}
+
+```
+
+## Purity of annotated cell types in clusters 
+
+
+
+
+

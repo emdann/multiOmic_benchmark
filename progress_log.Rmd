@@ -48,7 +48,7 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 4) **Fraction of unassigned cells** (but how to distinguish unassigned and badly assigned?)
 5) **Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies**
 6) **Robustness to parameter picking (e.g. no. of factors)**
-7) Agreement meric defined by Butler et al. 2018: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph
+7) Agreement meric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
 
 ## Ideas for less "agnostic" integration
 

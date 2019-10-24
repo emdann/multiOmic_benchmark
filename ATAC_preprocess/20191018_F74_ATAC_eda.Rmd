@@ -84,7 +84,7 @@ f74.atac.seu <- FindNeighbors(f74.atac.seu, verbose = F)
 f74.atac.seu <- FindClusters(f74.atac.seu, algorithm = 4, verbose = F)
 
 DimPlot(f74.atac.seu, reduction = "umap", group.by = 'ident') + ggtitle("leiden") +
-  ggsave("~/output/ATAC_EDA/ATAC_hvg_clustering.jpeg", height = 10, width=12)
+  ggsave("~/multiOmic_benchmark/output/ATAC_EDA/ATAC_hvg_clustering.jpeg", height = 6, width=8)
 ```
 <!-- ncd -->
 <!-- ```{r} -->
@@ -130,11 +130,11 @@ marker.cormat.rna <-
 We can see that the co-accessibility signal is much weaker than the co-expression signal, but these are significantly correlated.
 
 ```{r}
-jpeg("~/output/ATAC_EDA/ATAC_hvg_coaccessibility.jpeg", height = 700, width=900)
-pheatmap::pheatmap(marker.cormat.atac, main="co-accessibility", cellwidth = 10, cellheight = 10)
+png("~/multiOmic_benchmark/output/ATAC_EDA/ATAC_hvg_coaccessibility.png", height=500, width=500)
+pheatmap::pheatmap(marker.cormat.atac, main="co-accessibility", cellwidth = 20, cellheight = 20)
 dev.off()
-jpeg("~/output/ATAC_EDA/ATAC_hvg_coexpression.jpeg", height = 700, width=900)
-pheatmap::pheatmap(marker.cormat.rna, main="co-expression", cellwidth = 10, cellheight = 10)
+png("~/multiOmic_benchmark/output/ATAC_EDA/ATAC_hvg_coexpression.png", height=500, width=500)
+pheatmap::pheatmap(marker.cormat.rna, main="co-expression", cellwidth = 20, cellheight = 20)
 dev.off()
 ```
 ```{r, warning=FALSE, message=FALSE}
@@ -157,7 +157,7 @@ full_join(long.cormat.atac, long.cormat.rna) %>%
   geom_hline(linetype=2, yintercept = 0) +
   stat_cor() +
   ggtitle("Thymus marker genes") +
-  ggsave("~/output/ATAC_EDA/ATAC_hvg_markersCoexpression.jpeg", height = 8, width=8)
+  ggsave("~/multiOmic_benchmark/output/ATAC_EDA/ATAC_hvg_markersCoexpression.png", height = 5, width=5)
 
 ```
 
@@ -242,27 +242,37 @@ Seurat::VlnPlot(f74.atac.seu, features = c("MMP2", "COL12A1", "PLAT", "NTRK2"), 
 ```
 
 ## Add cell type annotation to RNA data 
+First clusters only 
+```{r}
+f74.rna.seu <- FindNeighbors(f74.rna.seu, verbose = F)
+f74.rna.seu <- FindClusters(f74.rna.seu, algorithm = 4, verbose = F)
+
+DimPlot(f74.rna.seu, reduction = "umap", group.by = 'ident') + ggtitle("leiden") +
+  ggsave("~/multiOmic_benchmark/output/ATAC_EDA/RNA_hvg_clustering.jpeg", height = 6, width=8)
+
+```
+
 ```{r}
 annotation.df <- read.csv("~/my_data/F74_RNA_obs.csv")
 
-annotation.df$X <- str_remove(annotation.df$X, "F74_1_") %>% str_c("_1")
-annotation.df$X %>% length()
+# annotation.df$X <- str_remove(annotation.df$X, "F74_1_") %>% str_c("_1")
+annotation.df <- annotation.df %>%
+  mutate(cell=str_remove(as.character(X), "F74_1_") %>% str_c(ifelse(batch==0,'_1', "_2"))) 
 
-table(annotation.df$X) %>% sort(decreasing = T)
-annotation.df[annotation.df$X == 'F74_1_AGCTCCTCAAGGCTCC',]
-
-annotation.df %>% dplyr::rename(cell=X)
-# f74.rna.seu@meta.data <- 
+f74.rna.seu@meta.data <-
   f74.rna.seu@meta.data %>%
   rownames_to_column("cell") %>%
   left_join(annotation.df, by="cell")
-f74.rna.seu@meta.data <- 
-  f74.rna.seu@meta.data %>%
+
+f74.rna.seu@meta.data %<>%
   column_to_rownames("cell")
 
-DimPlot(f74.rna.seu, dims=1:2, group.by = "annotation", reduction = "umap")
+ggplotly(DimPlot(f74.rna.seu, dims=1:2, group.by = "annotation", reduction = "umap"))
 ```
 
+```{r}
+FeaturePlot(f74.rna.seu, features = "HLA-DRA")
+```
 
 
 ## Output clusters & UMAP coordinates for Daniel

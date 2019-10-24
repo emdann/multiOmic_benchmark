@@ -121,8 +121,8 @@ ggpubr::ggarrange(p1, p2, common.legend = TRUE) +
 
 Testing Liger integration as the authors
 ```{r}
-ligerH.umap <- uwot::umap(int.liger$misc$H.norm, pca = NULL, verbose = TRUE)
-ligerHraw.umap <- uwot::umap(purrr::reduce(int.liger$misc$H, rbind), pca = NULL, verbose = TRUE)
+ligerH.umap <- uwot::umap(int.liger$misc$H.norm, pca = NULL, verbose = TRUE, metric = "cosine", min_dist = 0.3, n_neighbors = 30L)
+ligerHraw.umap <- uwot::umap(purrr::reduce(int.liger$misc$H, rbind), pca = NULL, verbose = TRUE, metric = "cosine", min_dist = 0.3, n_neighbors = 30L)
 
 pl_hnorm <- as_tibble(ligerH.umap) %>%
   mutate(cell=rownames(int.liger$misc$H.norm)) %>%
