@@ -16,7 +16,7 @@ source("~/multiOmic_benchmark/utils.R")
 theme_set(theme_bw(base_size = 16))
 
 ## Make output directory
-outdir <- "~/multiOmic_benchmark/output/JointClustering_20191024/"
+outdir <- "~/multiOmic_benchmark/output/20191024_JointClustering/"
 ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
 ```
 
