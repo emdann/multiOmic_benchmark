@@ -8,7 +8,7 @@ library(liger)
 library(SingleCellExperiment)
 library(MultiAssayExperiment)
 library(magrittr)
-source("~/multiOmic_benchmark/selectFeatures.R")
+source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
 
 ### Wrapper function ###
 run_integration <- function(sce.list, method, n_features, reference="RNA", query="ATAC"){
@@ -24,6 +24,7 @@ run_integration <- function(sce.list, method, n_features, reference="RNA", query
   }
   
   int_output <- integrate(sce.list, integrate_features, reference=reference, query=query)
+  int_output[["integrate_features"]] <- integrate_features
   return(int_output)  
   }
 

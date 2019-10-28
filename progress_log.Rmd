@@ -4,6 +4,7 @@ output: github_document
 ---
 
 ## Dataset details 
+Incl. stats about dataset quality (median no. of fragments per cell, perc. of fragments mapping to peaks, median no. of fragments in peaks per cell)
 
 ## Data preprocessing
 
@@ -25,7 +26,7 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
   - Imputation strategy: projecting ATAC cells on NMF factor space. Testing if this is a valid imputation strategy using scRNA-seq data only 
 - **SnapATAC pipeline:** it just wraps CCA alignment
 - **scGen:** requires cell type annotation also on the ATAC dataset
-- **totalVI:** ??
+- **totalVI:** not applicable as it assumes matching between cells (cite-Seq and RNA-seq from the same single-cells) 
 - **BBKNN:** how do you do an imputation step?
 
 
@@ -55,3 +56,29 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 1) Select only a certain lineage of cells (e.g. that you can align in pseudotime)
 2) Annotation of cell types also in ATAC-seq data (e.g. to use scGen)
 3) Considering enhancer accessibility (matching them to genes??)
+
+## Does adding the ATAC information improve the inference of gene regulatory networks?
+
+- running SCENIC on full integrated data VS just on RNA
+
+## Other random things
+
+- How does ATAC improve the RNA? **Can we detect cell clusters/populations that are highly homogeneous in the RNA 
+but display significant variability at the accessibility level?**
+- Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?) Could be done on the time series data 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

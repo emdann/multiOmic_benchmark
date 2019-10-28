@@ -29,4 +29,6 @@ int_output <- run_integration(sce.list, method, n_features, reference=reference,
 
 outdir <- "~/models/"
 outfile <- str_c("integrate", method, "_", str_remove(sce.list.path, ".+/"))
-saveRDS(int_output, str_c(outdir, outfile))
+featfile <- str_c("intFeatures","_", n_features, "_", str_remove(str_remove(sce.list.path, ".+/"), ".RDS"), ".txt")
+saveRDS(int_output[1:2], str_c(outdir, outfile))
+saveRDS(int_output[[3]], str_c(outdir, featfile))
