@@ -27,7 +27,7 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 - **SnapATAC pipeline:** it just wraps CCA alignment
 - **scGen:** requires cell type annotation also on the ATAC dataset
 - **totalVI:** not applicable as it assumes matching between cells (cite-Seq and RNA-seq from the same single-cells) 
-- **BBKNN:** how do you do an imputation step?
+- **BBKNN:** (how do you do an imputation step?)
 
 
 ## Uniform output for all methods 
@@ -50,6 +50,7 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 5) **Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies**
 6) **Robustness to parameter picking (e.g. no. of factors)**
 7) Agreement meric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
+8) **Expression not at random of markers after integration:** is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator
 
 ## Ideas for less "agnostic" integration
 
