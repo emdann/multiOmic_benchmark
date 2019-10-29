@@ -1,6 +1,8 @@
 ---
 title: "Benchmarking methods for alignment of scRNA-sea and scATAC-seq data"
 output: github_document
+bibliography: bibliography.bib
+link-citations: true
 ---
 
 ## Dataset details 
@@ -9,9 +11,12 @@ Incl. stats about dataset quality (median no. of fragments per cell, perc. of fr
 ## Data preprocessing
 
 ### ATAC-seq
-Methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. There are a number of possible ways to do this:
+ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addition, methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. Different papers use different strategies to preprocess ATAC-seq data and featurization (benchmarked by @chenAssessmentComputationalMethods2019a):
 
-- **Seurat pipeline**: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream (). 
+- **Seurat pipeline**: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream [@welchSingleCellMultiomicIntegration2019a; @stuartComprehensiveIntegrationSingleCell2019a]. 
+- **SNAP-ATAC pipeline:** the genome is binned, then a cell x bin binary matrix is constructed. From this binary matrix a gene-level matrix is made [@FastAccurateClusteringa].
+- **PCA based on bulk:** some studies [@buenrostroIntegratedSingleCellAnalysis2018] find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations.
+- **LSI method:** this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy).
 
 ### RNA-seq
 
@@ -55,13 +60,15 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 6) **Robustness to parameter picking (e.g. no. of factors)**
 7) Agreement meric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
 8) **Expression not at random of markers after integration:** is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator
+    - Find marker genes from RNA only
+    - Measure non-random expression in RNA only
 9) **pySCENIC on RNA only or integration w ATAC seq**
 
 ## Ideas for less "agnostic" integration
 
 1) Select only a certain lineage of cells (e.g. that you can align in pseudotime)
 2) Annotation of cell types also in ATAC-seq data (e.g. to use scGen)
-3) Considering enhancer accessibility (matching them to genes??)
+3) Considering enhancer accessibility (matching them to genes??) 
 
 ## Does adding the ATAC information improve the inference of gene regulatory networks?
 
@@ -72,9 +79,9 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 - How does ATAC improve the RNA? Can we detect cell clusters/populations that are highly homogeneous in the RNA
 but display significant variability at the accessibility level? But what is variability in super noisy ATAC seq?
 - Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?) 
-Could be done on the time series data 
+Could be done on the time series data @svenssonInterpretableFactorModels2019
 
-
+## Bibliography
 
 
 

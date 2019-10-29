@@ -274,6 +274,60 @@ ggplotly(DimPlot(f74.rna.seu, dims=1:2, group.by = "annotation", reduction = "um
 FeaturePlot(f74.rna.seu, features = "HLA-DRA")
 ```
 
+## Comparison of distributions between RNA and ATAC data
+```{r}
+frac0.rna <- apply(counts(f74.rna)[hvg.rna,],1, function(x) sum(x==0)/length(x))
+frac0.atac <- apply(counts(f74.atac)[hvg.rna,],1, function(x) sum(x==0)/length(x))
+
+data.frame(no_0_atac = frac0.atac, no_0_rna = frac0.rna) %>%
+  ggplot(aes(no_0_atac, no_0_rna)) +
+  geom_point() +
+  xlab("% zeroes ATAC") + ylab("% zeroes RNA")
+```
+```{r}
+sum.rna <- apply(counts(f74.rna)[hvg.rna,],1, function(x) sum(x))
+sum.atac <- apply(counts(f74.atac)[hvg.rna,],1, function(x) sum(x))
+
+data.frame(no_0_atac = sum.atac, no_0_rna = sum.rna) %>%
+  ggplot(aes(no_0_atac, no_0_rna)) +
+  geom_point() +
+  xlab("% zeroes ATAC") + ylab("% zeroes RNA")
+
+data.frame(ATAC = sum.atac, RNA = sum.rna) %>%
+  pivot_longer(cols = c("ATAC", "RNA"),names_to = "tech", values_to = "counts_x_gene") %>%
+  filter(counts_x_gene < 2000) %>%
+  ggplot(aes(counts_x_gene, color=tech)) + 
+  stat_ecdf()
+  geom_histogram(position="identity") +
+  facet_grid(tech~.)
+
+
+```
+
+Are the HVGs more accessible than random genes?
+```{r}
+rand.genes <- sample(setdiff(rownames(f74.atac), hvg.rna), length(hvg.rna))
+
+sum.rand <- apply(counts(f74.atac)[rand.genes,],1, function(x) sum(x))
+
+data.frame(ATAC = sum.atac, random = sum.rand) %>%
+  pivot_longer(cols = c("ATAC", "random"),names_to = "tech", values_to = "counts_x_gene") %>%
+  filter(counts_x_gene < 2000) %>%
+  ggplot(aes(counts_x_gene, color=tech)) + 
+  stat_ecdf()
+
+```
+
+```{r}
+frac0.rand <- apply(counts(f74.atac)[rand.genes,],1, function(x) sum(x==0)/length(x))
+
+data.frame(ATAC = frac0.atac, random = frac0.rand) %>%
+  pivot_longer(cols = c("ATAC", "random"),names_to = "tech", values_to = "zeros_x_gene") %>%
+  # filter(counts_x_gene < 2000) %>%
+  ggplot(aes(zeros_x_gene, color=tech)) + 
+  stat_ecdf()
+```
+
 
 ## Output clusters & UMAP coordinates for Daniel
 ```{r}
