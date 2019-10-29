@@ -8,12 +8,16 @@ Incl. stats about dataset quality (median no. of fragments per cell, perc. of fr
 
 ## Data preprocessing
 
-- **ATAC-seq:** raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). For aligment with scRNA-seq data we need to reduce ATAC peaks to gene-level features. We do this as in the Seurat pipeline, summing all counts in peaks within gene bodies + 2kb upstream. 
-- **RNA-seq**
+### ATAC-seq
+Methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. There are a number of possible ways to do this:
+
+- **Seurat pipeline**: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream (). 
+
+### RNA-seq
 
 Both datasets where preprocessed with std steps: removal of empty/lowQ cells, normalization per cell coverage, 
 
-## Feature selection
+#### Feature selection
 - Highly-variable genes in RNA
 - genes that are expressed only in a few cells 
 
@@ -51,6 +55,7 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 6) **Robustness to parameter picking (e.g. no. of factors)**
 7) Agreement meric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
 8) **Expression not at random of markers after integration:** is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator
+9) **pySCENIC on RNA only or integration w ATAC seq**
 
 ## Ideas for less "agnostic" integration
 
@@ -64,9 +69,10 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 
 ## Other random things
 
-- How does ATAC improve the RNA? **Can we detect cell clusters/populations that are highly homogeneous in the RNA 
-but display significant variability at the accessibility level?**
-- Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?) Could be done on the time series data 
+- How does ATAC improve the RNA? Can we detect cell clusters/populations that are highly homogeneous in the RNA
+but display significant variability at the accessibility level? But what is variability in super noisy ATAC seq?
+- Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?) 
+Could be done on the time series data 
 
 
 
