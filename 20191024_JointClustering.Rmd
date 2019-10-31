@@ -110,52 +110,72 @@ getNNlist <- function(seurat.obj){
     asplit(2)
   }
 
-calculateAgreement <- function(int.seu, k=20){
+calculateAgreement <- function(int.seu, tech, k=20){
   ## Find single dataset KNN graph
-  seu.list <- 
-    seu.list %>%
-    map(~ FindNeighbors(.x, k.param = k))
+  single.seu <- FindNeighbors(seu.list[[tech]], k.param = k)
+  single.nn <- getNNlist(single.seu)  
+  # single.dataset.nn <- purrr::reduce(seu.list.nn, c)
   
-  seu.list.nn <- map(seu.list, ~ getNNlist(.x)) 
-  single.dataset.nn <- purrr::reduce(seu.list.nn, c)
-  
-  ## Find integrated KNN graph
-  int.seu <- FindNeighbors(int.seu, k.param = k)
+  ## Find integrated KNN graph (each dataset separately)
+  int.seu <- FindNeighbors(int.seu[,int.seu$tech==tech], k.param = k)
   nn.list.int <- getNNlist(int.seu)
-  
+
   ## Find overlap between KNN graphs
   # common_nns <- map(names(single.dataset.nn), ~ sum(nn.list.int[[.x]] %in% single.dataset.nn[[.x]])) %>% purrr::reduce(sum) 
-  common_nns <- map_dbl(names(single.dataset.nn), ~ sum(nn.list.int[[.x]] %in% single.dataset.nn[[.x]])) %>%
-    set_names(names(single.dataset.nn))
-  agreement.score <- {sum(common_nns)/(k*length(single.dataset.nn))}
+  common_nns <- map_dbl(names(single.nn), ~ sum(nn.list.int[[.x]] %in% single.nn[[.x]])) %>%
+      set_names(names(single.nn))
+  agreement.score <- {sum(common_nns)/(k*(length(single.nn)))}
   return(list(common_nns, agreement.score))
   }
 
 
-# liger.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$liger, k=10))
-# cca.agr <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, k=10))
+liger.agr.atac <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$liger, tech="ATAC", k=.x))
+cca.agr.atac <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, tech="ATAC", k=.x))
 
-liger.agr.k20 <- calculateAgreement(int.seu = int.seu.list$liger, k=20)
-cca.agr.k20 <- calculateAgreement(int.seu = int.seu.list$cca, k=20)
+liger.agr.rna <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$liger, tech="RNA", k=.x))
+cca.agr.rna <- map(seq(5,40, by=5), ~ calculateAgreement(int.seu.list$cca, tech="RNA", k=.x))
 
-pl1 <- data.frame(sharedNNs_per_cell = liger.agr.k20[[1]], cell=names(liger.agr.k20[[1]])) %>%
-  mutate(tech=ifelse(str_detect(cell, "_"), "RNA", "ATAC")) %>%
-  ggplot(aes(sharedNNs_per_cell, fill=tech)) + geom_histogram() +
-  facet_wrap(tech~.) +
-    xlim(0,20) +
-  ggtitle("LIGER (k=20)",subtitle = paste("Agreement score =", round(liger.agr.k20[[2]], 2))) 
+# liger.agr.k20 <- calculateAgreement(int.seu = int.seu.list$liger, k=50)
+# cca.agr.k20 <- calculateAgreement(int.seu = int.seu.list$cca, k=50)
+# 
+# pl1 <- data.frame(sharedNNs_per_cell = liger.agr.k20[[1]], cell=names(liger.agr.k20[[1]])) %>%
+#   mutate(tech=ifelse(str_detect(cell, "_"), "RNA", "ATAC")) %>%
+#   ggplot(aes(sharedNNs_per_cell, fill=tech)) + geom_histogram(bins=50) +
+#   facet_wrap(tech~.) +
+#     xlim(0,50) +
+#   ggtitle("LIGER (k=20)",subtitle = paste("Agreement score =", round(liger.agr.k20[[2]], 2))) 
+# 
+# pl2 <- data.frame(sharedNNs_per_cell = cca.agr.k20[[1]], cell=names(cca.agr.k20[[1]])) %>%
+#   mutate(tech=ifelse(str_detect(cell, "_"), "RNA", "ATAC")) %>%
+#   ggplot(aes(sharedNNs_per_cell, fill=tech)) + geom_histogram(bins=50) +
+#   facet_wrap(tech~.) +
+#   xlim(0,50) +
+#   ggtitle("CCA (k=20)",subtitle = paste("Agreement score =", round(cca.agr.k20[[2]], 2)))
+# 
+# ggarrange(pl1, pl2, nrow=2) +
+#   ggsave(paste0(outdir, "agreement_k20.png"), height = 8, width=8)
+# pl1
 
-pl2 <- data.frame(sharedNNs_per_cell = cca.agr.k20[[1]], cell=names(cca.agr.k20[[1]])) %>%
-  mutate(tech=ifelse(str_detect(cell, "_"), "RNA", "ATAC")) %>%
-  ggplot(aes(sharedNNs_per_cell, fill=tech)) + geom_histogram() +
-  facet_wrap(tech~.) +
-  xlim(0,20) +
-  ggtitle("CCA (k=20)",subtitle = paste("Agreement score =", round(cca.agr.k20[[2]], 2)))
+  
+pl_atac <- bind_rows(
+  imap_dbl(liger.agr.atac, ~ .x[[2]]) %>% set_names(seq(5,40, by=5)) %>% data.frame(agr=., k=as.double(names(.))) %>% mutate(method="LIGER"),
+  imap_dbl(cca.agr.atac, ~ .x[[2]]) %>% set_names(seq(5,40, by=5)) %>% data.frame(agr=., k=as.double(names(.))) %>% mutate(method="CCA")
+  ) %>%
+  ggplot(aes(as.numeric(k), agr, color=method)) +
+  geom_point(size=2) +
+  ggtitle("ATAC")
 
-ggarrange(pl1, pl2, nrow=2) +
-  ggsave(paste0(outdir, "agreement_k20.png"), height = 8, width=8)
+pl_rna <- bind_rows(
+  imap_dbl(liger.agr.rna, ~ .x[[2]]) %>% set_names(seq(5,40, by=5)) %>% data.frame(agr=., k=as.double(names(.))) %>% mutate(method="LIGER"),
+  imap_dbl(cca.agr.rna, ~ .x[[2]]) %>% set_names(seq(5,40, by=5)) %>% data.frame(agr=., k=as.double(names(.))) %>% mutate(method="CCA")
+  ) %>%
+  ggplot(aes(as.numeric(k), agr, color=method)) +
+  geom_point(size=2) +
+  ggtitle("RNA")
 
+ggarrange(pl_rna, pl_atac, ncol=1, nrow=2)
 ```
+
 
 
 ## Purity of annotated cell types in clusters 

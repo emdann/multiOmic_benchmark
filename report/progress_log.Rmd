@@ -18,6 +18,8 @@ ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addi
 - **PCA based on bulk:** some studies [@buenrostroIntegratedSingleCellAnalysis2018] find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations.
 - **LSI method:** this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy).
 
+
+
 ### RNA-seq
 
 Both datasets where preprocessed with std steps: removal of empty/lowQ cells, normalization per cell coverage, 
@@ -37,6 +39,8 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 - **scGen:** requires cell type annotation also on the ATAC dataset
 - **totalVI:** not applicable as it assumes matching between cells (cite-Seq and RNA-seq from the same single-cells) 
 - **BBKNN:** (how do you do an imputation step?)
+- **Cusanovich2018:** they figure out a way to transfer cell type annotation labels
+- **Conos**
 
 
 ## Uniform output for all methods 
@@ -52,13 +56,12 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 - PCA on integrated space and find genes with high eigen values
 - How to denoise the ATAC data??
 
-1) Robustness to different methods of feature selection: HVGs in the RNA
 2) Robustness to different fractions of cells in ATAC dataset
 3) Leave-one-out approach for imputed data
 4) **Fraction of unassigned cells** (but how to distinguish unassigned and badly assigned?)
 5) **Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies**
 6) **Robustness to parameter picking (e.g. no. of factors)**
-7) Agreement meric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
+7) Agreement metric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
 8) **Expression not at random of markers after integration:** is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator
     - Find marker genes from RNA only
     - Measure non-random expression in RNA only
@@ -70,9 +73,10 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 2) Annotation of cell types also in ATAC-seq data (e.g. to use scGen)
 3) Considering enhancer accessibility (matching them to genes??) 
 
-## Does adding the ATAC information improve the inference of gene regulatory networks?
+## Biological interpretation of integration
 
-- running SCENIC on full integrated data VS just on RNA
+In Cusanovich et al. 2018 they identify differentially accessible sites & cluster specific accessibility patterns.
+
 
 ## Other random things
 

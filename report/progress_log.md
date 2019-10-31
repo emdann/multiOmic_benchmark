@@ -85,8 +85,6 @@ normalizes each batch and then calculates distances
 
 <!-- end list -->
 
-1)  Robustness to different methods of feature selection: HVGs in the
-    RNA
 2)  Robustness to different fractions of cells in ATAC dataset
 3)  Leave-one-out approach for imputed data
 4)  **Fraction of unassigned cells** (but how to distinguish unassigned
@@ -94,7 +92,7 @@ normalizes each batch and then calculates distances
 5)  **Joint clustering: purity of cell type annotation inside a cluster,
     mixing within the same cluster between different technologies**
 6)  **Robustness to parameter picking (e.g. no. of factors)**
-7)  Agreement meric defined by Welch et al. 2019: compare KNN graph of
+7)  Agreement metric defined by Welch et al. 2019: compare KNN graph of
     single datasets with KNN graph in integrated space, then calculate
     how many of each cell’s NNs in the single dataset graph are also NNs
     in the integrated graph. Welch et al. compare NN graphs built with
