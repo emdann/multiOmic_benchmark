@@ -27,7 +27,7 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 #### Feature selection
 - Highly-variable genes in RNA
 - genes that are expressed only in a few cells 
-- Also ATAC specific markers are informative, contain signal from known marker genes in thymic development. Probably beneficial for alignment to take the union and not only the HVGs from RNA 
+- Also ATAC specific markers are informative, contain signal from known marker genes in thymic development. Probably beneficial for alignment to take the union and not only the HVGs from RNA. 
 
 ## Tested integration methods 
 

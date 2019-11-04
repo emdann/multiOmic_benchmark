@@ -14,6 +14,13 @@ intOutput2seurat <- function(intOut, int.features, reference="RNA"){
   return(int.seu)
 }
 
+#' Get list of NN for each cell from NN graph in seurat object
+getNNlist <- function(seurat.obj){
+  seurat.obj@graphs$RNA_nn %>%
+    apply(1, function(x) names(which(x==1))) %>%
+    asplit(2)
+}
+
 
 ### Plotting utils ###
 
