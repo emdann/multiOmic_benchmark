@@ -27,6 +27,7 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 #### Feature selection
 - Highly-variable genes in RNA
 - genes that are expressed only in a few cells 
+- Also ATAC specific markers are informative, contain signal from known marker genes in thymic development. Probably beneficial for alignment to take the union and not only the HVGs from RNA 
 
 ## Tested integration methods 
 
@@ -40,11 +41,13 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 - **totalVI:** not applicable as it assumes matching between cells (cite-Seq and RNA-seq from the same single-cells) 
 - **BBKNN:** (how do you do an imputation step?)
 - **Cusanovich2018:** they figure out a way to transfer cell type annotation labels
-- **Conos**
+- **Conos:** based on joint embedding  
 
 
 ## Uniform output for all methods 
 - Impute transcriptomic data
+- **Transfer labels from RNA-seq to ATAC-seq**
+  
 
 ## Metrics for comparison of integration models
 
@@ -58,7 +61,7 @@ Nearest neighbors in PCA? How to make a nearest neighbor graph between modalitie
 
 2) Robustness to different fractions of cells in ATAC dataset
 3) Leave-one-out approach for imputed data
-4) **Fraction of unassigned cells** (but how to distinguish unassigned and badly assigned?)
+4) **Fraction of unassigned cells** (but how to distinguish unassigned and badly assigned?): prediction score from label transfer 
 5) **Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies**
 6) **Robustness to parameter picking (e.g. no. of factors)**
 7) Agreement metric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.
@@ -84,6 +87,7 @@ In Cusanovich et al. 2018 they identify differentially accessible sites & cluste
 but display significant variability at the accessibility level? But what is variability in super noisy ATAC seq?
 - Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?) 
 Could be done on the time series data @svenssonInterpretableFactorModels2019
+- Clonality of epigenetic modifications ATAC + TCR tracing 
 
 ## Bibliography
 

@@ -11,18 +11,24 @@ library(magrittr)
 source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
 
 ### Wrapper function ###
-run_integration <- function(sce.list, method, n_features, reference="RNA", query="ATAC"){
+run_integration <- function(sce.list, method, n_features, feature.selection = "union_hvg", reference="RNA", query="ATAC"){
   ## Select integration features
-  integrate_features <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
-  
+  if (feature.selection=="reference_hvg") {
+    integrate_features <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
+  } else if (feature.selection == "union_hvg"){
+    integrate_features_ref <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
+    integrate_features_query <- HVG_Seurat(sce.list[[query]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[reference]])]}
+    integrate_features <- union(integrate_features_ref, integrate_features_query)
+  } else {
+      stop("Invalid feature selection method: please specify one of 'reference_hvg' or 'union_hvg' ")
+    }
   if (method == "CCA") {
     integrate <- integrate_seuratCCA
   } else if (method == "liger") {
     integrate <- integrate_liger
   } else {
-    stop("invalid integration method. Please select one of CCA, liger")
+    stop("invalid integration method. Please specify one of 'CCA', 'liger'")
   }
-  
   int_output <- integrate(sce.list, integrate_features, reference=reference, query=query)
   int_output[["integrate_features"]] <- integrate_features
   return(int_output)  
@@ -126,38 +132,50 @@ integrate_liger <- function(sce.list, integrate_features, reference="RNA", query
   misc <- list(H = liger.obj@H, H.norm = liger.obj@H.norm, V= liger.obj@V, W=liger.obj@W, liger.obj@parameters)
   return(list(intOut = intMAE, misc = misc))
   }
-# 
-# sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191017.RDS")
-# f74.list <- sce.list
-# sce.list %<>% map(~ .x[,1:500])
-# integrate_features <- HVG_Seurat(sce.list$RNA, nfeatures = 4000) %>% {.[. %in% rownames(sce.list$ATAC)]}
-# 
-# int_seurat <- integrate_seuratCCA(sce.list, integrate_features)
-# int_liger <- integrate_liger(sce.list, integrate_features)
-
-# 
-# liger.obj <- liger::runTSNE(liger.obj, use.raw = T)
-# p1 <- plotByDatasetAndCluster(liger.obj, return.plots = T)
-# print(p1[[1]])
-# 
-# liger.obj <- liger::runTSNE(liger.obj)
-# p1 <- plotByDatasetAndCluster(liger.obj, return.plots = T)
-# print(p1[[1]])
-# 
-# pheatmap::pheatmap(liger.obj@H.norm)
-# 
-# CD8A = plotGene(liger.obj,gene="CD4",return.plots=T)
-# plot_grid(CD8A[[1]] + ylim(-30, 30), CD8A[[2]] + ylim(-30, 30))
-# 
-# 
-# p1[[1]]
 
 
+### Transfer Labels ###
+#' Seurat CCA integration
+#' @param sce.list list of SingleCellExperiment objects for RNA and ATAC seq datasets
+#' @param integrate_features selected features to perform CCA on
+#' @param reference reference dataset for FindTransferAnchors
+#' @param query query dataset for FindTransferAnchors
+#' 
+#' @return list of integration output (see details)
+#' 
+#' @details Function outputs list of 
+#' 1) Seurat object list containing input datasets + new annotations and prediction score in query dataset metadata, 
+labelTransfer_seuratCCA <- function(seurat.list, transfer.anchors, reference="RNA", query="ATAC"){
+  ## Transfer cell type labels
+  celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = seurat.list[[reference]]$annotation, weight.reduction = "cca")
+  seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = celltype.predictions)
+  return(seurat.list)
+}
 
+int.cca <- readRDS("~/models/integrateCCA_F74_SCElist_20191017.RDS")
+sce.list <- readRDS(file = "my_data/integrated_thymus/F74_SCElist_20191101.RDS")
 
-
-
-
+#' Seurat CCA integration model
+#' @param sce.list list of SingleCellExperiment objects for RNA and ATAC seq datasets
+#' @param integrate_features selected features to perform CCA on
+#' @param reference reference dataset for FindTransferAnchors
+#' @param query query dataset for FindTransferAnchors
+#' 
+#' @return list of integration output (see details)
+#' 
+#' @details Function outputs list of 
+#' 1) model: CCA model (Anchor object from Seurat)
+#' 2) input: Seurat object list containing input datasets
+run_SeuratCCA <- function(sce.list, integrate_features, reference="RNA", query="ATAC"){
+  seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
+  ## Scale data
+  seurat.list <- map(seurat.list, ~ ScaleData(.x))
+  ## Calculate CCA anchors
+  transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]], 
+                                          features = integrate_features, 
+                                          reduction = "cca")
+  return(list(model=transfer.anchors, input=seurat.list))
+  }
 
 
 

@@ -71,10 +71,6 @@ int.seu.list <-
   map(int.seu.list, ~ FindNeighbors(.x, verbose = TRUE)) %>%
   map(~ FindClusters(.x, algorithm = 4, resolution = 1))
 
-# ## Extract clusters & metadata
-# int.seu.list %>%
-#   map(~ .x@meta.data)
-
 ## Plot
 ggarrange(plotlist=imap(int.seu.list, ~ DimPlot(.x, reduction = "umap") + ggtitle(.y))) +
   ggsave(paste0(outdir, "UMAP_clustering.png"), height=6, width=12)
@@ -200,11 +196,13 @@ DimPlot(int.liger.seu, reduction = "umap", group.by="annotation") + ggtitle("LIG
 DimPlot(int.cca.seu, reduction = "umap", group.by="annotation")  + ggtitle("CCA")
 ```
 
-Visualize cell type purity of clusters from integrated datasets (fraction of cells per cell type in each cluster)
+### Fraction of cells per cell type in each cluster
+Fraction is calculated on RNA cells only
 ```{r, fig.width=12, fig.height=10, warning=FALSE, message=FALSE}
 imap(int.seu.list, ~ .x@meta.data %>%
        rownames_to_column("cell") %>%
        left_join(annotation.df, by="cell") %>%
+        filter(tech=="RNA") %>%
        column_to_rownames("cell") %>%
        group_by(seurat_clusters) %>%
        mutate(n_clusters=n()) %>%
@@ -216,7 +214,7 @@ imap(int.seu.list, ~ .x@meta.data %>%
        filter(!is.na(annotation)) %>%
         ggplot(aes(y=annotation, x=as.factor(seurat_clusters), color=frac, size=frac)) +
        geom_point() +
-       scale_color_gradient(low="grey70", high="red") +
+       scale_color_gradient(low="grey70", high="red", name="Fraction x cluster") +
        #  geom_bar(position="fill") +
         ggtitle(.y) 
        # coord_flip() +
@@ -226,7 +224,44 @@ imap(int.seu.list, ~ .x@meta.data %>%
 
 
 ```
-Calculate cluster purity: 
+
+### Fraction of cells per cluster of each cell type
+Visualize cell type purity of clusters from integrated datasets (fraction of cells per cell type in each cluster)
+```{r, fig.width=7, fig.height=8, warning=FALSE, message=FALSE}
+make_annoXcluster_frac <- function(int.seu){
+  anno.frac.mat <- int.seu@meta.data %>%
+         rownames_to_column("cell") %>%
+         left_join(annotation.df, by="cell") %>%
+         column_to_rownames("cell") %>%
+         filter(tech=="RNA") %>%
+         group_by(annotation) %>%
+         mutate(n_anno=n()) %>%
+         ungroup() %>%
+         group_by(annotation, seurat_clusters) %>%
+         mutate(count=n()) %>%
+         ungroup() %>%
+         mutate(frac=count/n_anno) %>%
+         select(seurat_clusters, annotation, frac) %>%
+         distinct() %>%
+         spread(seurat_clusters, frac) %>%
+         column_to_rownames('annotation') %>%
+         as.matrix()
+  return(anno.frac.mat)  
+}
+
+make_annoXcluster_frac(int.seu.list$liger) %>%     
+  {ifelse(is.na(.), 0, .)} %>%
+  pheatmap::pheatmap(color = c('white',brewer.pal(15,"Reds")), main = "LIGER")
+make_annoXcluster_frac(int.seu.list$cca) %>%     
+  {ifelse(is.na(.), 0, .)} %>%
+  pheatmap::pheatmap(color = c('white',brewer.pal(15,"Reds")), main = "CCA")
+
+
+```
+
+
+
+Calculate cluster purity:
 
 - Find most abundant cell type per cluster
 - calculate fraction of cells of that cell type in the cluster (excluding ATAC cells w no assignment)
@@ -237,7 +272,8 @@ clusterPurity <- function(meta.data){
        rownames_to_column("cell") %>%
        left_join(annotation.df, by="cell") %>%
        column_to_rownames("cell")  %>%
-    filter(!is.na(annotation)) %>%
+    # filter(!is.na(annotation)) %>%
+    filter(tech=="RNA") %>%
     select(tech, seurat_clusters, annotation) %>%
     group_by(seurat_clusters, annotation) %>%
     mutate(n_cell_type=n()) %>%
@@ -246,7 +282,7 @@ clusterPurity <- function(meta.data){
     summarise(n_cluster=n(),
               cluster.cell.type=annotation[max(n_cell_type)],
               n_cell_type=max(n_cell_type)) %>%
-    mutate(frac=n_cell_type/n_cluster) 
+    mutate(frac=n_cell_type/n_cluster)
 }
 
 pl1 <- clusterPurity(int.seu.list$cca@meta.data) %>%
@@ -268,6 +304,24 @@ pl2 <- clusterPurity(int.seu.list$liger@meta.data) %>%
 
 ggarrange(pl1, pl2, common.legend = TRUE)
 ```
+
+### Find markers in joint clusters impure clusters
+```{r, fig.height=15, fig.width=15}
+clusterPurity(int.seu.list$cca@meta.data) %>% filter(frac < 0.5) %>% pull(seurat_clusters) %>% as.numeric()
+# FindMarkers(int.seu.list$cca, ident.1 = 8)
+# 
+# int.seu.list$liger <- FindAllMarkers(int.seu.list$liger, min.pct = 0.2, logfc.threshold = 0.3, only.pos = TRUE)
+
+cl4_markers <- FindMarkers(int.seu.list$liger, ident.1 = '4')
+marks <- cl4_markers %>%
+  rownames_to_column("gene") %>%
+  arrange(p_val_adj) %>%
+  .[1:10,] %>%
+  pull(gene)
+
+FeaturePlot(int.seu.list$liger, features = marks) 
+```
+
 
 <!-- Calculate purity w different clustering modularity -->
 <!-- ```{r} -->

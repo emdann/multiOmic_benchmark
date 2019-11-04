@@ -1,0 +1,125 @@
+---
+title: "Test CONOS"
+output: html_notebook
+---
+
+```{r}
+library(conos)
+library(ggplot2)
+```
+
+```{r}
+# load(url("http://pklab.med.harvard.edu/peterk/conos/atac_rna/data.RData"))
+sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191017.RDS")
+```
+
+Takes in input list of normalized counts
+```{r}
+# data.processed <- lapply(data, basicSeuratProc)
+data.processed <- map(sce.list, ~ as.Seurat(.x) %>% 
+                        FindVariableFeatures() %>%
+                        ScaleData() %>%
+                        RunPCA(dims=1:30))
+
+```
+Run conos
+```{r}
+l.con <- Conos$new(data.processed,n.cores=30)
+l.con$buildGraph(k=15,k.self=5,k.self.weigh=0.01,ncomps=30,n.odgenes=5e3,space='PCA') 
+
+l.con$findCommunities(resolution=1.5)
+l.con$embedGraph(alpha=1/2);
+```
+
+```{r}
+l.con$plotGraph(color.by='sample',mark.groups=F,alpha=0.1,show.legend=T,title='platform',raster=T)+theme(legend.position=c(1,1),legend.justification = c(1,1))+guides(color=guide_legend(ncol=2,override.aes = list(size=3,alpha=0.8)))
+```
+
+### Label propagation
+```{r}
+annotation.df <- read.csv("~/my_data/F74_RNA_obs.csv")
+annotation.df <- annotation.df %>%
+  mutate(cell=str_remove(as.character(X), "F74_1_") %>% str_c(ifelse(batch==0,'_1', "_2"))) 
+annotation <- setNames(annotation.df$annotation, annotation.df$cell)
+
+new.label.probabilities <- l.con$propagateLabels(labels = annotation, verbose = T)
+
+l.con$plotGraph(colors=(1 - apply(new.label.probabilities, 1, max)), show.legend=T, legend.title="Uncertainty", legend.pos=c(1, 0))
+```
+
+```{r}
+new.annot <- setNames(colnames(new.label.probabilities)[apply(new.label.probabilities,1,which.max)], rownames(new.label.probabilities))
+
+l.con$plotGraph(color = new.annot)
+
+```
+
+### Common PCA as done by Barkas et al. 2019
+
+- PCA on datasets separately
+- make joint space of union of PCs 
+- project scaled datasets onto joint space 
+
+```{r}
+## Make joint PC loadings
+W_l <- lapply(data.processed, function(x) x@reductions$pca@feature.loadings[,1:30]) 
+colnames(W_l$RNA) <- str_c(colnames(W_l$RNA), "_RNA")
+colnames(W_l$ATAC) <- str_c(colnames(W_l$ATAC), "_ATAC")
+
+features <- union(rownames(W_l$RNA), rownames(W_l$ATAC))
+
+jointW <- map(W_l, ~ rbind(.x, matrix(nrow=length(setdiff(features, rownames(.x))), ncol=30, 
+                            dimnames=list(setdiff(features, rownames(.x)),NULL)))
+    ) %>%
+  map( ~ .x[features,]) %>%
+  purrr::reduce(cbind)
+
+jointW <- ifelse(is.na(jointW),0,jointW)
+
+## Project both datasets on joint PCs
+common.pca.data <- map(data.processed, ~ ScaleData(.x, features = features))
+fitZ <- map(common.pca.data, ~ lm(.x@assays$RNA@scale.data ~ jointW[rownames(.x@assays$RNA@scale.data),]))
+
+jointPCA <- 
+  map(fitZ, ~ t(.x$coefficients[2:61,])) %>%
+  purrr::reduce(rbind)
+colnames(jointPCA) <- str_remove(colnames(jointPCA), ".+]")
+
+## Visualize w UMAP
+jointPCA.RNA.umap <- uwot::umap(jointPCA[colnames(data.processed$RNA),])
+jointPCA.ATAC.umap <- uwot::umap(jointPCA[colnames(data.processed$ATAC),])
+
+
+data.frame(jointPCA.RNA.umap, cell=rownames(jointPCA[colnames(data.processed$RNA),])) %>%
+  ggplot(aes(X1, X2) ) + geom_point(size=0.6) +
+  ggtitle("RNA")
+data.frame(jointPCA.ATAC.umap, cell=rownames(jointPCA[colnames(data.processed$ATAC),])) %>%
+  ggplot(aes(X1, X2) ) + geom_point(size=0.6) +
+  ggtitle("ATAC")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

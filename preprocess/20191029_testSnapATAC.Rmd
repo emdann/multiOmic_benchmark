@@ -367,7 +367,7 @@ x.sp = createGmatFromMat(
   )
 
 saveRDS(x.sp, file = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
-
+x.sp <- readRDS( "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
 ```
 
 Repeat visualization on gmat
@@ -388,9 +388,11 @@ f74.seu <- FindVariableFeatures(f74.seu)
 f74.seu <- RunPCA(f74.seu, dims=1:50)
 f74.seu <- RunUMAP(f74.seu, reduction = "pca", dims=1:50, verbose=FALSE) 
 
+Seurat::Idents(f74.seu) <- x.sp@cluster
+
 ggpubr::ggarrange(
-  DimPlot(f74.seu, reduction = "umap", group.by = NULL) + ggtitle("gmat"),
-  DimPlot(f74.seu, reduction = "umap.snap", group.by = NULL) + ggtitle("bmat - snap") 
+  DimPlot(f74.seu, reduction = "umap") + ggtitle("gmat"),
+  DimPlot(f74.seu, reduction = "umap.snap") + ggtitle("bmat - snap") 
   )
 
 ```
@@ -453,7 +455,7 @@ DimHeatmap(f74.seu, dims = 1:6, balanced = TRUE,ncol = 1)
 
 <!-- ``` -->
 ```{r}
-DAGs_cl <- FindAllMarkers(f74.seu, min.pct = 0.2, logfc.threshold = 0.3, only.pos = TRUE)
+DAGs_cl <- FindAllMarkers(f74.seu, min.pct = 0.2, logfc.threshold = 0.3)
 DAGs_cl <- 
   DAGs_cl %>%
   mutate(positive=avg_logFC > 0)
@@ -502,6 +504,41 @@ plot_cluster_marker_ATACvsRNA <- function(cl){
 map(1:10, ~ plot_cluster_marker_ATACvsRNA(.x))
 ```
 
+## Differential analysis only between the putative T-cell clusters
+```{r, fig.width=8, fig.height=15}
+t_clusters <- c("1", '2', '3', '4', '5')
+DAGs_tcells <- map(t_clusters, ~ FindMarkers(f74.seu, ident.1 = .x, ident.2 = setdiff(t_clusters,.x), min.pct = 0.2, logfc.threshold = 0.3))
+
+top20_tcells_markers <- imap(DAGs_tcells, ~ .x %>% rownames_to_column() %>% filter( avg_logFC > 0) %>% mutate(cluster=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  # filter(positive) %>%
+  group_by(cluster) %>%
+  top_n(20,wt = - p_val_adj) %>%
+  pull(rowname)
+
+
+DotPlot(f74.seu, features = top20_tcells_markers) +
+  coord_flip() +
+  ggtitle("T-cell subtypes markers (DA between clusters 1-5)")
+```
+
+Only between cluster 1 and 2
+```{r}
+DAGs_tcells_12 <- FindMarkers(f74.seu, ident.1 = '1', ident.2 = '2', min.pct = 0.2, logfc.threshold = 0.3)
+
+top20_cl12_markers <- DAGs_tcells_12 %>% 
+  rownames_to_column() %>% 
+  filter( avg_logFC > 0) %>% 
+  top_n(20,wt = - p_val_adj) %>%
+  pull(rowname)
+
+DotPlot(f74.seu, features = top20_cl12_markers) +
+  coord_flip() +
+  ggtitle("DA between clusters 1-2")
+```
+
+
+
 ```{r}
 plotly::ggplotly(DimPlot(f74.rna.seu, group.by = "annotation"))
 ```
@@ -517,6 +554,22 @@ f74.seu.hvgatac <- RunUMAP(f74.seu.hvgatac, reduction = "pca", dims=1:30, verbos
 f74.seu.hvgatac <- AddMetaData(f74.seu.hvgatac, x.sp@cluster, col.name='SnapATAC_cluster')
 DimPlot(f74.seu.hvgatac, reduction = "umap", group.by = "SnapATAC_cluster") 
 ```
+
+## Save markers
+```{r}
+DAGs_cl %>% filter(positive) %>% write_csv("~/my_data/integrated_thymus/F74_ATAC_clusterMarkers_allVSall_20191104.csv")
+imap(DAGs_tcells, ~ .x %>% 
+  rownames_to_column("gene") %>%
+  filter(avg_logFC > 0) %>%
+  mutate(cluster=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  write_csv("~/my_data/integrated_thymus/F74_ATAC_clusterMarkers_1to5VS1to5_20191104.csv")
+
+DAGs_tcells_12 %>% 
+  rownames_to_column("gene") %>%
+  write_csv("~/my_data/integrated_thymus/F74_ATAC_clusterMarkers_1VS2_20191104.csv")
+```
+
 
 
 ## Thoughts
