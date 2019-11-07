@@ -18,8 +18,6 @@ ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addi
 - **PCA based on bulk:** some studies [@buenrostroIntegratedSingleCellAnalysis2018] find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations.
 - **LSI method:** this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy).
 
-
-
 ### RNA-seq
 
 Both datasets where preprocessed with std steps: removal of empty/lowQ cells, normalization per cell coverage, 
@@ -31,22 +29,36 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 
 ## Tested integration methods 
 
-- **Seurat CCA**:
-  - select K?
-- **LIGER:**
-  - K factors
-  - Imputation strategy: projecting ATAC cells on NMF factor space. Testing if this is a valid imputation strategy using scRNA-seq data only 
-- **SnapATAC pipeline:** it just wraps CCA alignment
-- **scGen:** requires cell type annotation also on the ATAC dataset
-- **totalVI:** not applicable as it assumes matching between cells (cite-Seq and RNA-seq from the same single-cells) 
-- **BBKNN:** (how do you do an imputation step?)
-- **Cusanovich2018:** they figure out a way to transfer cell type annotation labels
-- **Conos:** based on joint embedding  
+| Method       | Reference | Included in benchmark | Reason for Excluding |
+| -------------|-----------|:---------------------:|:--------------------:|
+| Seurat CCA   | @stuartComprehensiveIntegrationSingleCell2019a | Yes | / |
+| LIGER | @welchSingleCellMultiomicIntegration2019a | Yes | / |
+| Conos | @barkasJointAnalysisHeterogeneous2019 | Yes | / |
+| scGen | @lotfollahiScGenPredictsSinglecell2019 | No | Requires cell type annotation in both datasets |
+| totalVI | @gayosoJointModelRNA2019 | No | Requires  multi-omic data from the same single-cells |
+| BBKNN | @polanskiBBKNNFastBatch | No | Bad alignment during testing |
+| Cusanovich2018 | @cusanovichSingleCellAtlasVivo2018a | No | Code unavailable |
 
 
-## Uniform output for all methods 
-- Impute transcriptomic data
-- **Transfer labels from RNA-seq to ATAC-seq**
+### Label transfer
+One of the key tasks for integration methods is to be able to transfer cell type annotations learnt from a reference to a query dataset. This is especially useful if the query is a scATAC-seq dataset, where calling of cell types based on prior knownledge on marker genes is often not possible. Different models are adapted to transfer discrete cell state labels derived from gene expression to cells measured with scATAC-seq.
+
+##### Seurat CCA
+
+Identified anchor pairs are weighted based on the query cell local neighboorhood (the k nearest anchors) and the anchor score. The obtained reference cells x query cells weight matrix is then multiplied by the matrix of annotation x reference cells, to generate a query cell x annotation matrix. This returns a prediction score for each class for every cell in the query dataset, ranging from 0 to 1 [@stuartComprehensiveIntegrationSingleCell2019a].
+
+##### LIGER
+While the authors do not describe a method for transferring discrete labels, I adapted their strategy for feature imputation. I build a cross-dataset KNN graph in the aligned factor space, then I assign each query cell to the most abundant label between the k nearest neighbors in the reference dataset (k=30). The prediction score for label $l$ is computed as the fraction of nearest neighbors that have the predicted label.
+$$
+score = \frac{count(l)}{k}
+$$
+##### Conos
+Label transfer is treated as a general problem of information propagation between vertices of the common graph (detailed in @barkasJointAnalysisHeterogeneous2019). The label score is the label probability updating during the diffusion process.
+
+
+<!-- ## Uniform output for all methods  -->
+<!-- - Impute transcriptomic data -->
+<!-- - **Transfer labels from RNA-seq to ATAC-seq** -->
   
 
 ## Metrics for comparison of integration models

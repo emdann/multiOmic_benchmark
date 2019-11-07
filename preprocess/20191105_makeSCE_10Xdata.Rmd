@@ -1,0 +1,334 @@
+---
+title: "Make PBMC dataset"
+output: html_notebook
+---
+```{r}
+suppressPackageStartupMessages({
+  library(SnapATAC)
+  library(leiden)
+  library(umap)
+  library(GenomicRanges)
+  library(zoo)
+  library(tidyverse)
+  library(cowplot)
+  library(ggpubr)
+})
+source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
+source("~/multiOmic_benchmark/preprocess/preprocess.R")
+```
+
+First I have made the snap file from the cellranger `fragments.tsv` file. Script is `multiOmic_benchmark/preprocess/fragments2snap.sh`.
+
+Following [integration vignette](https://github.com/r3fang/SnapATAC/blob/master/examples/10X_PBMC_15K/README.md) 
+
+### Barcode selection
+Filtering based on number of reads per cell and ratio of fragments that are within promoters
+```{r}
+snap.files <- "~/my_data/10X_data/atac_pbmc_10k_nextgem.snap"
+sample.names <- "PBMC_10X"
+barcode.files <- '~/my_data/10X_data/atac_pbmc_10k_nextgem_singlecell.csv'
+
+x.sp.ls <- list(createSnap(snap.files, sample.names))
+names(x.sp.ls) = sample.names
+x.sp.ls
+
+barcode.ls = lapply(seq(snap.files), function(i){
+    barcodes = read.csv(
+        barcode.files[i], 
+        head=TRUE
+    );
+    # remove NO BAROCDE line
+    barcodes = barcodes[2:nrow(barcodes),];
+    barcodes$logUMI = log10(barcodes$passed_filters + 1);
+    barcodes$promoter_ratio = (barcodes$promoter_region_fragments+1) / (barcodes$passed_filters + 1);
+    barcodes
+  })
+
+plots = lapply(seq(snap.files), function(i){
+    p1 = ggplot(
+        barcode.ls[[i]], 
+        aes(x=logUMI, y=promoter_ratio)) + 
+        geom_point(size=0.3, col="grey") +
+        theme_classic()	+
+        ggtitle(sample.names[[i]]) +
+        ylim(0, 1) + xlim(0, 6) + 
+        labs(x = "log10(counts)", y="promoter ratio")
+        p1
+    })
+
+## Select and viz cutoffs
+cutoff.logUMI.low = c(3.5, 3.5);
+cutoff.logUMI.high = c(5, 5);
+cutoff.FRIP.low = c(0.4, 0.4);
+cutoff.FRIP.high = c(0.8, 0.8);
+
+
+plots[[1]] + 
+  geom_vline(xintercept = c(cutoff.logUMI.low[1],cutoff.logUMI.high[1]), linetype=2) +
+  geom_hline(yintercept = c(cutoff.FRIP.low[1],cutoff.FRIP.high[1]), linetype=2)
+```
+```{r}
+barcode.ls = lapply(seq(snap.files), function(i){
+  barcodes = barcode.ls[[i]];
+  idx = which(
+      barcodes$logUMI >= cutoff.logUMI.low[i] & 
+      barcodes$logUMI <= cutoff.logUMI.high[i] & 
+      barcodes$promoter_ratio >= cutoff.FRIP.low[i] &
+      barcodes$promoter_ratio <= cutoff.FRIP.high[i]
+  );
+  barcodes[idx,]
+});
+x.sp.ls = lapply(seq(snap.files), function(i){
+  barcodes = barcode.ls[[i]];
+  x.sp = x.sp.ls[[i]];
+  barcode.shared = intersect(x.sp@barcode, barcodes$barcode);
+  x.sp = x.sp[match(barcode.shared, x.sp@barcode),];
+  barcodes = barcodes[match(barcode.shared, barcodes$barcode),];
+  x.sp@metaData = barcodes;
+  x.sp
+})
+names(x.sp.ls) = sample.names;
+x.sp = Reduce(snapRbind, x.sp.ls);
+x.sp@metaData["sample"] = x.sp@sample;
+x.sp
+```
+
+### Add cell-by-bin matrix
+```{r}
+x.sp = addBmatToSnap(x.sp, bin.size = 5000)
+```
+## Binarize matrix
+Some items in the count matrix have abnormally high coverage perhaps due to the alignment errors. Therefore, we next remove top 0.1% items in the count matrix and then convert the remaining non-zero values to 1.
+```{r}
+x.sp = makeBinary(x.sp, mat="bmat")
+x.sp
+```
+
+## Filter bins
+Filter out bins overlapping w ENCODE blacklist
+
+```{r}
+black_list = read.table("~/annotations/hg38.blacklist.bed.gz")
+black_list.gr = GRanges(
+  black_list[,1], 
+  IRanges(black_list[,2], black_list[,3])
+);
+idy = queryHits(
+  findOverlaps(x.sp@feature, black_list.gr)
+);
+if(length(idy) > 0){
+  x.sp = x.sp[,-idy, mat="bmat"];
+};
+x.sp
+```
+
+Exclude bad chromosomes
+```{r}
+chr.exclude = seqlevels(x.sp@feature)[grep("random|chrM", seqlevels(x.sp@feature))]
+idy = grep(paste(chr.exclude, collapse="|"), x.sp@feature)
+if(length(idy) > 0){
+  x.sp = x.sp[,-idy, mat="bmat"]
+}
+x.sp
+```
+
+remove the top 5% bins that overlap with invariant features such as the house keeping gene promoters
+
+```{r}
+bin.cov = log10(Matrix::colSums(x.sp@bmat)+1)
+# bin.cov = Matrix::colSums(x.sp@bmat)
+hist(
+  bin.cov[bin.cov > 0], 
+  xlab="log10(bin cov)", 
+  main="log10(Bin Cov)", 
+  col="lightblue", 
+  # xlim=c(0, 5),
+  breaks=100
+);
+bin.cutoff = quantile(bin.cov[bin.cov > 0], 0.95)
+idy = which(bin.cov <= bin.cutoff & bin.cov > 0)
+x.sp = x.sp[, idy, mat="bmat"];
+x.sp
+```
+
+Remove any cells of bin coverage less than 1,000. The rational behind this is that some cells may have high number of unique fragments but end up with low bin coverage after filtering. This step is optional but highly recommanded.
+```{r}
+idx = which(Matrix::rowSums(x.sp@bmat) > 1000);
+x.sp = x.sp[idx,];
+x.sp
+```
+
+## Dimensionality reduction
+Uses diffusion map algorithm w sampling technique to make it fast.
+
+```{r}
+## Sample 100 cells as landmarks 
+row.covs.dens <- density(
+  x = x.sp@metaData[,"logUMI"], 
+  bw = 'nrd', adjust = 1
+)
+sampling_prob <- 1 / (approx(x = row.covs.dens$x, y = row.covs.dens$y, xout = x.sp@metaData[,"logUMI"])$y + .Machine$double.eps);
+set.seed(1)
+idx.landmark.ds <- sort(sample(x = seq(nrow(x.sp)), size = 1000, prob = sampling_prob))
+
+## Split between landmark and query cells
+x.landmark.sp = x.sp[idx.landmark.ds,];
+x.query.sp = x.sp[-idx.landmark.ds,];
+
+## Run diffusion map on landmark
+x.landmark.sp = runDiffusionMaps(
+  obj= x.landmark.sp,
+  input.mat="bmat", 
+  num.eigs=50
+);
+x.landmark.sp@metaData$landmark = 1;
+
+## Project query cells
+x.query.sp = runDiffusionMapsExtension(
+  obj1=x.landmark.sp, 
+  obj2=x.query.sp,
+  input.mat="bmat"
+)
+x.query.sp@metaData$landmark = 0;
+
+## Combine 
+x.sp = snapRbind(x.landmark.sp, x.query.sp);
+x.sp = x.sp[order(x.sp@metaData[,"sample"])]; #IMPORTANT
+```
+
+To determine significant diffusion components:
+> We use an ad hoc method by simply looking at a pairwise plot and select the number of eigen vectors that the scatter plot starts looking like a blob. In the below example, we choose the first 15 eigen vectors.
+
+```{r}
+plotDimReductPW(
+    obj=x.sp, 
+    eigs.dims=1:50,
+    point.size=0.3,
+    point.color="grey",
+    point.shape=19,
+    point.alpha=0.6,
+    down.sample=5000,
+    pdf.file.name=NULL, 
+    pdf.height=7, 
+    pdf.width=7
+  );
+```
+
+## Clustering and visualization
+```{r}
+signif.dims = 1:15
+x.sp = runKNN(
+    obj=x.sp,
+    eigs.dims=signif.dims,
+    k=15
+  );
+
+x.sp=runCluster(
+    obj=x.sp,
+    tmp.folder=tempdir(),
+    louvain.lib="leiden",
+    seed.use=10,
+    resolution=0.7
+  );
+```
+
+Visualization
+```{r, fig.height=5, fig.width=5}
+x.sp = runViz(
+ obj=x.sp, 
+ tmp.folder=tempdir(),
+ dims=2,
+ eigs.dims=signif.dims, 
+ method="umap",
+ seed.use=10
+)
+
+plotViz(
+    obj= x.sp,
+    method="umap", 
+    main="Cluster",
+    point.color=x.sp@cluster, 
+    point.size=0.2, 
+    point.shape=19, 
+    text.add=TRUE,
+    text.size=1,
+    text.color="black",
+    down.sample=10000,
+    legend.add=FALSE
+  );
+
+```
+```{r}
+### DID U GET THE RIGHT GENOME??
+transcripts.gr = rtracklayer::import("~/annotations/Homo_sapiens.GRCh37.82.gtf")
+colnames(transcripts.gr@elementMetadata) <- str_replace(colnames(transcripts.gr@elementMetadata), "gene_name", "name")
+
+genes.gr <- unlist(range(split(transcripts.gr, ~ name)))  ## From transcripts to genes
+genes.gr$name <- names(genes.gr)
+
+if (GenomeInfoDb::seqlevelsStyle(genes.gr) != GenomeInfoDb::seqlevelsStyle(x.sp@feature) ) {
+  GenomeInfoDb::seqlevelsStyle(genes.gr) <- GenomeInfoDb::seqlevelsStyle(x.sp@feature)
+}
+
+x.sp = createGmatFromMat(
+    obj=x.sp, 
+    input.mat="bmat",
+    genes=genes.gr,
+    do.par=TRUE,
+    num.cores=10
+  )
+
+saveRDS(x.sp, file = "~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
+x.sp <- readRDS(file = "~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
+
+```
+
+```{r}
+x.seu <- snapToSeurat(x.sp, eigs.dims = 1:15)
+atac.seu <- RunUMAP(x.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:15)
+atac.seu <- AddMetaData(atac.seu, x.sp@cluster, col.name = "snap.cluster")
+DimPlot(atac.seu, reduction="umap.snap", group.by = "snap.cluster", label = T)
+```
+```{r}
+FeaturePlot(atac.seu, features = c("GNLY", "LYZ"))
+
+```
+
+
+### Read RNA and save count mat
+```{r}
+pbmc.rna <- readRDS("~/my_data/10X_data/pbmc_10k_v3.rds")
+pbmc.rna.mat <- pbmc.rna@assays$RNA@counts
+
+```
+
+### Make SCE list for integration benchmark
+```{r}
+x.sp <- readRDS("~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
+pbmc.atac.act <- t(x.sp@gmat)
+pbmc.atac.act <- pbmc.atac.act[names(which(table(rownames(pbmc.atac.act)) == 1)),] # Remove duplicate rows
+
+sce.list <- makeSCElist(list(RNA=pbmc.rna.mat, ATAC=pbmc.atac.act))
+sce.list$RNA <- filterCells(sce.list$RNA)
+# sce.list$ATAC <- filterCells(sce.list$ATAC, fracMito = 1)
+
+sce.list <- map(sce.list, ~ normalizePerCell(.x))
+
+logcounts(sce.list$RNA) <- log1p(cpm(sce.list$RNA))
+logcounts(sce.list$ATAC) <- log1p(cpm(sce.list$ATAC))
+
+## Compatibility w Seurat
+rownames(sce.list$RNA) %<>% str_replace_all("_", "-")
+rownames(sce.list$ATAC) %<>% str_replace_all("_", "-")
+
+coldata <- pbmc.rna@meta.data[,c( "celltype"), drop=F]
+colnames(coldata) <- "annotation"
+colData(sce.list$RNA) <- DataFrame(coldata[colnames(sce.list$RNA),, drop=F])
+
+## Save SingleCellExperiment list
+saveRDS(object = sce.list, file = "~/my_data/10X_data/PBMC_SCElist_20191105.RDS")
+
+```
+
+
+

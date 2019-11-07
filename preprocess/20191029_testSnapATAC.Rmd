@@ -348,7 +348,7 @@ plotViz(
 
 ## Make gene matrix
 ```{r}
-transcripts.gr = rtracklayer::import("~/Homo_sapiens.GRCh38.93.filtered.gtf")
+transcripts.gr = rtracklayer::import("~/annotations/Homo_sapiens.GRCh38.93.filtered.gtf")
 colnames(transcripts.gr@elementMetadata) <- str_replace(colnames(transcripts.gr@elementMetadata), "gene_name", "name")
 
 genes.gr <- unlist(range(split(transcripts.gr, ~ name)))  ## From transcripts to genes

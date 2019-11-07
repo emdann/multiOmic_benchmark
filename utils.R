@@ -15,10 +15,20 @@ intOutput2seurat <- function(intOut, int.features, reference="RNA"){
 }
 
 #' Get list of NN for each cell from NN graph in seurat object
-getNNlist <- function(seurat.obj){
-  seurat.obj@graphs$RNA_nn %>%
+getNNlist <- function(obj, is.seurat=TRUE){
+  if (is.seurat) {
+    nn.graph <- obj@graphs[[1]]
+  } else {
+      nn.graph <- obj
+    }
+  nn.graph %>%
     apply(1, function(x) names(which(x==1))) %>%
     asplit(2)
+}
+
+
+eucl_distance <- function(p,q){
+  sqrt(sum((p - q)^2))
 }
 
 
@@ -27,6 +37,6 @@ getNNlist <- function(seurat.obj){
 brewer_palette_4_values <- function(vec, palette, seed=42){
   set.seed(seed)
   pal=suppressWarnings(colorRampPalette(brewer.pal(9, palette))(length(vec)))
-  names(pal) <- sample(vec)
+  # names(pal) <- sample(vec)
   return(pal)
 }

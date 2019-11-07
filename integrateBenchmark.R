@@ -2,16 +2,20 @@
 ### Integration methods ###
 ###########################
 
+suppressPackageStartupMessages({
 library(Seurat)
 library(tidyverse)
 library(liger)
 library(conos)
+library(pdist)
 library(SeuratWrappers)
 library(SingleCellExperiment)
 library(MultiAssayExperiment)
 library(magrittr)
+library(FastKNN)
 source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
 source("~/multiOmic_benchmark/utils.R")
+})
 
 ### Wrapper function ###
 run_integration <- function(sce.list, method, n_features, feature.selection = "union_hvg", reference="RNA", query="ATAC"){
@@ -171,9 +175,24 @@ labelTransfer_liger <- function(liger.obj, sce.list, annotation.col="annotation"
   seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
   annotation <- seurat.list[[reference]][[annotation.col]]
   
+  ## Compute distance matrix between query and dataset 
   small.seu.liger <- ligerToSeurat(liger.obj, renormalize = F)
-  small.seu.liger <- FindNeighbors(small.seu.liger, reduction = "inmf", k.param = k)
-  nn.list <- getNNlist(small.seu.liger)
+  ref.cells <- rownames(small.seu.liger@meta.data[which(small.seu.liger$orig.ident==reference),])
+  query.cells <- rownames(small.seu.liger@meta.data[which(small.seu.liger$orig.ident==query),])
+  nmf.mat <- small.seu.liger@reductions$inmf@cell.embeddings
+  
+  dist.mat <- as.matrix(pdist(nmf.mat[query.cells,], nmf.mat[ref.cells,]))
+  rownames(dist.mat) <- query.cells
+  colnames(dist.mat) <- ref.cells
+  cross.dataset.NN <- matrix(0, nrow = nrow(dist.mat), ncol = ncol(dist.mat))
+  for (i in 1:nrow(dist.mat)) {
+    nn = k.nearest.neighbors(i, dist.mat, k=k)
+    cross.dataset.NN[i,nn] <- 1
+  }
+  rownames(cross.dataset.NN) <- query.cells
+  colnames(cross.dataset.NN) <- ref.cells
+  # small.seu.liger@graphs <- cross.dataset.NN
+  nn.list <- getNNlist(cross.dataset.NN, is.seurat = F)
   predicted.labels <- 
     map_dfr(nn.list, ~ propagateNNannotation(.x, annotation)) %>%
     mutate(cell=names(nn.list))

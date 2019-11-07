@@ -52,25 +52,63 @@ cells, normalization per cell coverage,
 
   - Highly-variable genes in RNA
   - genes that are expressed only in a few cells
+  - Also ATAC specific markers are informative, contain signal from
+    known marker genes in thymic development. Probably beneficial for
+    alignment to take the union and not only the HVGs from RNA.
 
 ## Tested integration methods
 
-  - **Seurat CCA**:
-      - select K?
-  - **LIGER:**
-      - K factors
-      - Imputation strategy: projecting ATAC cells on NMF factor space.
-        Testing if this is a valid imputation strategy using scRNA-seq
-        data only
-  - **SnapATAC pipeline:** it just wraps CCA alignment
-  - **scGen:** requires cell type annotation also on the ATAC dataset
-  - **totalVI:** not applicable as it assumes matching between cells
-    (cite-Seq and RNA-seq from the same single-cells)
-  - **BBKNN:** (how do you do an imputation step?)
+| Method         | Reference                                                                                                  | Included in benchmark |                Reason for Excluding                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------- | :-------------------: | :-------------------------------------------------: |
+| Seurat CCA     | Stuart et al. ([2019](#ref-stuartComprehensiveIntegrationSingleCell2019a))                                 |          Yes          |                          /                          |
+| LIGER          | Welch et al. ([2019](#ref-welchSingleCellMultiomicIntegration2019a))                                       |          Yes          |                          /                          |
+| Conos          | (<span class="citeproc-not-found" data-reference-id="barkasJointAnalysisHeterogeneous2019">**???**</span>) |          Yes          |                          /                          |
+| scGen          | Lotfollahi, Wolf, and Theis ([2019](#ref-lotfollahiScGenPredictsSinglecell2019))                           |          No           |   Requires cell type annotation in both datasets    |
+| totalVI        | Gayoso et al. ([2019](#ref-gayosoJointModelRNA2019))                                                       |          No           | Requires multi-omic data from the same single-cells |
+| BBKNN          | Polański et al. ([n.d.](#ref-polanskiBBKNNFastBatch))                                                      |          No           |            Bad alignment during testing             |
+| Cusanovich2018 | Cusanovich et al. ([2018](#ref-cusanovichSingleCellAtlasVivo2018a))                                        |          No           |                  Code unavailable                   |
 
-## Uniform output for all methods
+### Label transfer
 
-  - Impute transcriptomic data
+One of the key tasks for integration methods is to be able to transfer
+cell type annotations learnt from a reference to a query dataset. This
+is especially useful if the query is a scATAC-seq dataset, where calling
+of cell types based on prior knownledge on marker genes is often not
+possible. Different models are adapted to transfer discrete cell state
+labels derived from gene expression to cells measured with scATAC-seq.
+
+##### Seurat CCA
+
+Identified anchor pairs are weighted based on the query cell local
+neighboorhood (the k nearest anchors) and the anchor score. The obtained
+reference cells x query cells weight matrix is then multiplied by the
+matrix of annotation x reference cells, to generate a query cell x
+annotation matrix. This returns a prediction score for each class for
+every cell in the query dataset, ranging from 0 to 1 (Stuart et al.
+[2019](#ref-stuartComprehensiveIntegrationSingleCell2019a)).
+
+##### LIGER
+
+While the authors do not describe a method for transferring discrete
+labels, I adapted their strategy for feature imputation. I build a
+cross-dataset KNN graph in the aligned factor space, then I assign each
+query cell to the most abundant label between the k nearest neighbors in
+the reference dataset (k=30). The prediction score for label \(l\) is
+computed as the fraction of nearest neighbors that have the predicted
+label. \[
+score = \frac{count(l)}{k}
+\] \#\#\#\#\# Conos Label transfer is treated as a general problem of
+information propagation between vertices of the common graph (detailed
+in
+(<span class="citeproc-not-found" data-reference-id="barkasJointAnalysisHeterogeneous2019">**???**</span>)).
+The label score is the label probability updating during the diffusion
+process.
+
+<!-- ## Uniform output for all methods  -->
+
+<!-- - Impute transcriptomic data -->
+
+<!-- - **Transfer labels from RNA-seq to ATAC-seq** -->
 
 ## Metrics for comparison of integration models
 
@@ -88,7 +126,7 @@ normalizes each batch and then calculates distances
 2)  Robustness to different fractions of cells in ATAC dataset
 3)  Leave-one-out approach for imputed data
 4)  **Fraction of unassigned cells** (but how to distinguish unassigned
-    and badly assigned?)
+    and badly assigned?): prediction score from label transfer
 5)  **Joint clustering: purity of cell type annotation inside a cluster,
     mixing within the same cluster between different technologies**
 6)  **Robustness to parameter picking (e.g. no. of factors)**
@@ -113,9 +151,10 @@ normalizes each batch and then calculates distances
 2)  Annotation of cell types also in ATAC-seq data (e.g. to use scGen)
 3)  Considering enhancer accessibility (matching them to genes??)
 
-## Does adding the ATAC information improve the inference of gene regulatory networks?
+## Biological interpretation of integration
 
-  - running SCENIC on full integrated data VS just on RNA
+In Cusanovich et al. 2018 they identify differentially accessible sites
+& cluster specific accessibility patterns.
 
 ## Other random things
 
@@ -127,6 +166,7 @@ normalizes each batch and then calculates distances
     and accessibility (are they really opening chromatin?) Could be done
     on the time series data Svensson and Pachter
     ([2019](#ref-svenssonInterpretableFactorModels2019))
+  - Clonality of epigenetic modifications ATAC + TCR tracing
 
 ## Bibliography
 
@@ -153,10 +193,45 @@ for the Analysis of Single-Cell ATAC-Seq Data.” *bioRxiv*, August,
 
 </div>
 
+<div id="ref-cusanovichSingleCellAtlasVivo2018a">
+
+Cusanovich, Darren A., Andrew J. Hill, Delasa Aghamirzaie, Riza M. Daza,
+Hannah A. Pliner, Joel B. Berletch, Galina N. Filippova, et al. 2018. “A
+Single-Cell Atlas of in Vivo Mammalian Chromatin Accessibility.” *Cell*
+174 (5): 1309–1324.e18. <https://doi.org/10.1016/j.cell.2018.06.052>.
+
+</div>
+
 <div id="ref-FastAccurateClusteringa">
 
 “Fast and Accurate Clustering of Single Cell Epigenomes Reveals
 Cis-Regulatory Elements in Rare Cell Types.” n.d., 41.
+
+</div>
+
+<div id="ref-gayosoJointModelRNA2019">
+
+Gayoso, Adam, Romain Lopez, Zoë Steier, Jeffrey Regier, Aaron Streets,
+and Nir Yosef. 2019. “A Joint Model of RNA Expression and Surface
+Protein Abundance in Single Cells.” *bioRxiv*, October, 791947.
+<https://doi.org/10.1101/791947>.
+
+</div>
+
+<div id="ref-lotfollahiScGenPredictsSinglecell2019">
+
+Lotfollahi, Mohammad, F. Alexander Wolf, and Fabian J. Theis. 2019.
+“scGen Predicts Single-Cell Perturbation Responses.” *Nature Methods*
+16 (8): 715. <https://doi.org/10.1038/s41592-019-0494-8>.
+
+</div>
+
+<div id="ref-polanskiBBKNNFastBatch">
+
+Polański, Krzysztof, Matthew D. Young, Zhichao Miao, Kerstin B. Meyer,
+Sarah A. Teichmann, and Jong-Eun Park. n.d. “BBKNN: Fast Batch Alignment
+of Single Cell Transcriptomes.” *Bioinformatics*. Accessed October 3,
+2019. <https://doi.org/10.1093/bioinformatics/btz625>.
 
 </div>
 

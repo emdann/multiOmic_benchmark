@@ -1,0 +1,230 @@
+---
+title: "Label transfer EDA"
+output: html_notebook
+---
+
+
+```{r}
+library(Seurat)
+library(SnapATAC)
+source("~/multiOmic_benchmark/utils.R")
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+```
+
+
+```{r}
+model.cca <- readRDS("~/models/modelCCA_F74_SCElist_20191101.RDS")
+model.liger <- readRDS("~/models/modelLiger_F74_SCElist_20191101.RDS")
+model.conos <- readRDS("~/models/modelConos_F74_SCElist_20191101.RDS")
+
+seu.cca <- readRDS("~/models/labelTransferCCA_F74_SCElist_20191101.RDS")
+seu.liger <- readRDS("~/models/labelTransferLiger_F74_SCElist_20191101.RDS")
+seu.conos <- readRDS("~/models/labelTransferConos_F74_SCElist_20191101.RDS")
+
+integrate_features <- seu.model$model@anchor.features
+
+int.list <- list(CCA=seu.cca, Liger=seu.liger, Conos=seu.conos)
+
+## Make method color palette
+method.palette <- brewer_palette_4_values(names(int.list), "Set1")
+
+```
+
+### Embeddings
+Visualize label transfer on original ATAC data (embedded SnapATAC bins)
+```{r}
+# add_var_features <- function(int.seu, integrate_features){
+#   VariableFeatures(int.seu$RNA) <- integrate_features
+#   VariableFeatures(int.seu$ATAC) <- integrate_features
+#   return(int.seu)
+# }
+# 
+# seu.cca <- add_var_features(seu.cca, integrate_features)
+# seu.cca <- map(seu.cca, ~ RunPCA(.x) %>% RunUMAP(dims=1:30))
+# 
+# seu.liger <- add_var_features(seu.liger, integrate_features)
+# seu.liger <- map(seu.liger, ~ RunPCA(.x) %>% RunUMAP(dims=1:30))
+# 
+# seu.conos <- add_var_features(seu.conos, integrate_features)
+# seu.conos <- map(seu.conos, ~ RunPCA(.x) %>% RunUMAP(dims=1:30))
+
+## Load original data
+orig.ATAC <- readRDS("~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191101.RDS")
+orig.RNA <- sce.list$RNA
+
+## Make SeuratObjects
+atac.seu <- snapToSeurat(
+    obj=orig.ATAC, 
+    eigs.dims=1:20, 
+    norm=TRUE,
+    scale=TRUE
+    )
+atac.seu <- RenameCells(atac.seu, new.names = orig.ATAC@metaData$barcode)
+
+## Add cell type predictions
+getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score"){
+  pred.df <- seu.int$ATAC@meta.data[,c(id.col, score.col), drop=F] 
+  rownames(pred.df) <- str_remove(rownames(pred.df), "^ATAC_")
+  colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
+  pred.df
+  }
+
+pred.cca <- getPredictedLabels(seu.cca, "CCA", score.col = "prediction.score.max")
+pred.liger <- getPredictedLabels(seu.liger, "Liger")
+pred.conos <- getPredictedLabels(seu.conos, "Conos")
+
+if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) == rownames(pred.liger))) {
+  atac.seu <- AddMetaData(atac.seu, metadata = cbind(pred.cca, pred.liger, pred.conos))
+} else {
+  stop("Non corresponding cell names")
+}
+```
+
+```{r, fig.height=8, fig.width=16}
+## make cell type palette
+cell.types <- levels(seu.cca$RNA$annotation)
+cell.type.pal <- setNames(gg_color_hue(length(cell.types)), cell.types)
+
+atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:20)
+
+ggpubr::ggarrange(
+  plotlist = list(
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal) + ggtitle("CCA"),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal) + ggtitle("Liger"),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal) + ggtitle("Conos")
+  ),
+  common.legend = TRUE, ncol=3, nrow=1
+)
+```
+
+## Cell type composition
+```{r}
+score_cols <- str_subset(colnames(atac.seu@meta.data), 'score_')
+label_cols <- str_subset(colnames(atac.seu@meta.data), 'predicted.id_')
+
+pred.labels.df <- imap(list(CCA=pred.cca, Liger=pred.liger, Conos=pred.conos), ~ 
+      rownames_to_column(.x, "cell") %>%
+      rename_all(funs(str_remove(., str_c("_",.y)))) %>%
+      mutate(method=.y)
+    ) %>%
+  purrr::reduce(bind_rows) %>%
+  mutate(score=ifelse(is.na(score), 0, score))
+```
+
+Compare cell type fractions
+```{r, fig.height=8, fig.width=5}
+orig.composition <- orig.RNA$annotation
+orig.frac <- table(orig.composition)/length(orig.composition)
+
+orig.frac.df <- data.frame(orig.frac) %>%
+  dplyr::rename(predicted.id=orig.composition, frac.label=Freq) %>%
+  mutate(method="original.RNA")
+
+pred.labels.df %>%
+  group_by(method) %>%
+  drop_na() %>%
+  mutate(tot.cells=n()) %>%
+  ungroup() %>%
+  group_by(method, predicted.id) %>%
+  summarise(tot.label = n(), tot.cells = max(tot.cells)) %>%
+  mutate(frac.label=tot.label/tot.cells) %>%
+  bind_rows(orig.frac.df) %>%
+  ggplot(aes(method, predicted.id)) +
+  geom_point(aes(color=as.numeric(frac.label), size=frac.label)) +
+  scale_color_continuous()
+  # scale_color_gradient2(mid="grey") +
+  theme_classic(base_size = 16)
+  # 
+  ggplot(aes(method, y=frac.label, fill=method)) +
+  geom_col() +
+  facet_wrap(predicted.id ~.) +
+  scale_fill_brewer(palette="Set1") +
+  # scale_fill_manual(values = cell.type.pal) +
+  theme(legend.position = "top")
+
+```
+
+#### Which cells are inconsistently scored?
+```{r, fig.width=14, fig.height=8}
+library(ggalluvial)
+pred.labels.df %>%
+  select(method, predicted.id, cell) %>%
+  mutate(predicted.id=ifelse(is.na(predicted.id), "none", predicted.id)) %>%
+  ggplot(aes(x=method, stratum=predicted.id, alluvium=cell, fill=predicted.id, label=predicted.id)) +
+  geom_flow() +
+  geom_stratum() +
+  geom_text(stat="stratum") +
+  theme_bw(base_size = 16)
+```
+
+
+
+## Prediction score
+
+```{r, fig.width=16, fig.height=8}
+ggpubr::ggarrange(
+  plotlist = list(
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  ) + ggtitle("CCA"),
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger") + ggtitle("Liger"),
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos") + ggtitle("Conos")
+  ),
+  common.legend = TRUE, ncol=3, nrow=1
+)
+```
+
+```{r}
+pred.labels.df %>%
+  ggplot(aes(score, fill=method)) +
+  geom_histogram(position="identity", alpha=0.8, bins=50) +
+  facet_grid(method ~., scales="free_y") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("Label prediction score") +
+  theme_bw(base_size = 16)
+```
+
+### Scoring per cell type
+```{r, fig.height=7, fig.width=6}
+
+dodge <- position_dodge(width=0.9)
+pred.labels.df %>%
+  group_by(method, predicted.id) %>%
+  summarise(score.mean=mean(score, na.rm=F), score.cv = sd(score)/mean(score), n=n()) %>%
+  # ggplot(aes(predicted.id, score.mean, fill=method)) +
+  # geom_col( position = dodge) +
+  ggplot(aes(predicted.id, method)) +
+  geom_point(aes(size=score.mean, color=score.mean)) +
+  scale_color_gradient(low="white", high = "blue") +
+  # geom_errorbar(aes(ymin=score.mean-score.cv, ymax=score.mean+score.cv), position=dodge, width=0.25)  +
+  coord_flip() +
+  theme_bw(base_size = 16)
+
+pred.labels.df %>%
+  ggplot(aes(predicted.id, score, color=method)) +
+  geom_boxplot() +
+  coord_flip() +
+  scale_color_brewer(palette="Set1")
+
+```
+
+## Common scoring metric
+- 
+
+### Thoughts
+- Conos scores a lot of cells with high confidence, but fails to assign cells to difficult clusters 
+- CCA resembles the composition of the RNA data better, but curious that the other methods identify way more 
+
+
+
+
+
+
+
+
+
+
