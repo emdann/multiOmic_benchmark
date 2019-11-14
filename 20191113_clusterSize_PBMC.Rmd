@@ -1,0 +1,107 @@
+---
+title: "Cluster size analysis"
+output: html_notebook
+---
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+```
+
+```{r}
+pred.labels <- readRDS("~/models/clusterSize_labelTransfer_PBMC.RDS")
+annotation_list <- readRDS("~/models/clusterSize_trueAnnotations_PBMC.RDS")
+resolutions <- seq(0.5,1.5, by = 0.1)
+pred.labels
+```
+
+### Prediction score
+```{r, fig.width=15, fig.height=7}
+pred.labels %>%
+  ggplot(aes(color=as.factor(res), score)) +
+  stat_ecdf() +
+  facet_wrap(method~.) +
+  scale_color_viridis_d() +
+  theme_bw(base_size = 16)
+```
+
+### Cell type composition
+```{r}
+orig.composition <- 
+  map(seq_along(resolutions), ~ data.frame(predicted.id = annotation_list[[.x]], res=resolutions[.x], method="original.RNA")) %>%
+  purrr::reduce(bind_rows) %>%
+  group_by(res) %>%
+  mutate(tot.cells=n()) %>%
+  ungroup() %>%
+  group_by(res, predicted.id) %>%
+  dplyr::mutate(frac=n()/tot.cells)  %>%
+  ungroup() 
+
+orig.rank <- 
+  orig.composition %>%
+  group_by(res) %>%
+  dplyr::mutate(orig.rank=dense_rank(frac)) %>%
+  select(res, predicted.id, orig.rank) %>% distinct() %>%
+  ungroup() 
+  
+pl.df <- 
+  pred.labels %>%
+  group_by(res, method) %>%
+  mutate(tot.cells=n()) %>%
+  ungroup() %>%
+  group_by(res, method, predicted.id) %>%
+  dplyr::mutate(frac=n()/tot.cells, mean.score=mean(score)) %>%
+  ungroup() %>%
+  bind_rows(orig.composition) %>%
+  left_join(orig.rank, by=c("predicted.id", "res")) %>%
+  dplyr::rename(rank=orig.rank) %>%
+  dplyr::arrange(rank) %>%
+  dplyr::mutate(predicted.id = factor(predicted.id, levels=unique(predicted.id))) %>%
+  select(res, mean.score, predicted.id, frac, method) %>%
+  distinct()
+
+pl.df %>%
+  filter(res==0.5) %>%
+  ggplot(aes(predicted.id, frac, fill=mean.score, color=mean.score)) +
+  facet_grid(.~method) +
+  coord_flip() +
+  geom_point() +
+  geom_bar(width=0.1, stat="identity")
+  
+```
+```{r, fig.width=10, fig.height=12}
+pl.df %>% 
+  ggplot(aes(predicted.id, frac, color=method)) +
+  geom_point(size=2) + geom_line(aes(group=method)) +
+  facet_grid(res~.) +
+  scale_color_brewer(palette = "Set1")
+```
+```{r}
+orig.composition %>%
+  group_by(res) %>%
+  distinct(predicted.id) %>%
+  summarise(n_clusters=n())
+cor.conos <- pl.df %>%
+  filter(method=="conos") %>%
+  left_join(filter(pl.df, method=="original.RNA"), by=c("res", 'predicted.id')) %>%
+  group_by(res, method.x) %>%
+  summarise(cor = cor(frac.x, frac.y, method = "pearson"))
+cor.cca <- pl.df %>%
+  filter(method=="CCA") %>%
+  left_join(filter(pl.df, method=="original.RNA"), by=c("res", 'predicted.id')) %>%
+  group_by(res, method.x) %>%
+  summarise(cor = cor(frac.x, frac.y, method = "pearson"))
+cor.liger <- pl.df %>%
+  filter(method=="liger") %>%
+  left_join(filter(pl.df, method=="original.RNA"), by=c("res", 'predicted.id')) %>%
+  group_by(res, method.x) %>%
+  summarise(cor = cor(frac.x, frac.y, method = "pearson"))
+
+bind_rows(cor.cca, cor.liger, cor.conos) %>%
+  ggplot(aes(res, cor)) +
+  geom_point(aes(color=method.x), size=2) +
+  scale_color_brewer(palette = "Set1")
+
+```
+

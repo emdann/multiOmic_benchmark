@@ -13,9 +13,9 @@ parser$add_argument("--feature_selection_method", default='union_hvg', type='cha
 parser$add_argument("--n_features", default=2000, type='double',
                     help="Number of highly variable genes from the reference dataset to use for integration (default=2000)")
 parser$add_argument("--reference", default="RNA", type="character",
-                    help="name of reference dataset")
+                    help="name of reference dataset (default: RNA)")
 parser$add_argument("--query", default="ATAC", type="character",
-                    help="name of query dataset")
+                    help="name of query dataset (default: ATAC)")
 args <- parser$parse_args()
 
 source("~/multiOmic_benchmark/integrateBenchmark.R")

@@ -150,7 +150,7 @@ integrate_liger <- function(sce.list, integrate_features, reference="RNA", query
 #' 
 #' @return list of Seurat objects with predicted annotations in the query dataset metadata
 #' 
-labelTransfer_seuratCCA <- function(seurat.list, transfer.anchors, reference="RNA", query="ATAC"){
+labelTransfer_seuratCCA <- function(transfer.anchors, seurat.list, reference="RNA", query="ATAC"){
   ## Transfer cell type labels
   celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = seurat.list[[reference]]$annotation, weight.reduction = "cca")
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = celltype.predictions)
@@ -170,7 +170,7 @@ labelTransfer_seuratCCA <- function(seurat.list, transfer.anchors, reference="RN
 #' Then we set the value of each missing label is set to the most abundant label among its k nearest neighbors in the reference dataset. 
 #' Ties are dealt with by taking the first of the maximum values. As prediction score I take the number of neighbors harboring the predicted.id 
 #' divided by k.
-labelTransfer_liger <- function(liger.obj, sce.list, annotation.col="annotation", k=30, reference="RNA", query="ATAC"){
+labelTransfer_liger <- function(liger.obj, sce.list, annotation.col="annotation", k=50, reference="RNA", query="ATAC"){
   seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
   seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
   annotation <- seurat.list[[reference]][[annotation.col]]

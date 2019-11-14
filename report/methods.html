@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>2 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</title>
+  <meta name="description" content="2 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <meta name="generator" content="bookdown 0.14 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="2 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="2 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  
+  
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="results.html"/>
+
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="1" data-path="results.html"><a href="results.html"><i class="fa fa-check"></i><b>1</b> Results</a><ul>
+<li class="chapter" data-level="1.1" data-path="results.html"><a href="results.html#label-transfer-comparison-on-pbmc-dataset"><i class="fa fa-check"></i><b>1.1</b> Label transfer comparison on PBMC dataset</a></li>
+<li class="chapter" data-level="1.2" data-path="results.html"><a href="results.html#label-transfer-comparison-on-thymus-dataset"><i class="fa fa-check"></i><b>1.2</b> Label transfer comparison on Thymus dataset</a></li>
+<li class="chapter" data-level="1.3" data-path="results.html"><a href="results.html#what-next"><i class="fa fa-check"></i><b>1.3</b> What next?</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="methods.html"><a href="methods.html"><i class="fa fa-check"></i><b>2</b> Methods</a><ul>
+<li class="chapter" data-level="2.1" data-path="methods.html"><a href="methods.html#dataset-details"><i class="fa fa-check"></i><b>2.1</b> Dataset details</a><ul>
+<li class="chapter" data-level="2.1.1" data-path="methods.html"><a href="methods.html#pbmc-dataset"><i class="fa fa-check"></i><b>2.1.1</b> PBMC dataset</a></li>
+<li class="chapter" data-level="2.1.2" data-path="methods.html"><a href="methods.html#thymus-dataset"><i class="fa fa-check"></i><b>2.1.2</b> Thymus dataset</a></li>
+</ul></li>
+<li class="chapter" data-level="2.2" data-path="methods.html"><a href="methods.html#data-preprocessing"><i class="fa fa-check"></i><b>2.2</b> Data preprocessing</a></li>
+<li class="chapter" data-level="2.3" data-path="methods.html"><a href="methods.html#scatac-seq-data-embedding"><i class="fa fa-check"></i><b>2.3</b> scATAC-seq data embedding</a></li>
+<li class="chapter" data-level="2.4" data-path="methods.html"><a href="methods.html#tested-integration-methods"><i class="fa fa-check"></i><b>2.4</b> Tested integration methods</a><ul>
+<li class="chapter" data-level="2.4.1" data-path="methods.html"><a href="methods.html#transfer-label"><i class="fa fa-check"></i><b>2.4.1</b> Label transfer</a></li>
+</ul></li>
+<li class="chapter" data-level="2.5" data-path="methods.html"><a href="methods.html#metrics-for-comparison-of-integration-models"><i class="fa fa-check"></i><b>2.5</b> Metrics for comparison of integration models</a></li>
+<li class="chapter" data-level="2.6" data-path="methods.html"><a href="methods.html#ideas-for-less-agnostic-integration"><i class="fa fa-check"></i><b>2.6</b> Ideas for less “agnostic” integration</a></li>
+<li class="chapter" data-level="2.7" data-path="methods.html"><a href="methods.html#biological-interpretation-of-integration"><i class="fa fa-check"></i><b>2.7</b> Biological interpretation of integration</a></li>
+<li class="chapter" data-level="2.8" data-path="methods.html"><a href="methods.html#other-random-things"><i class="fa fa-check"></i><b>2.8</b> Other random things</a></li>
+<li class="chapter" data-level="" data-path="methods.html"><a href="methods.html#bibliography"><i class="fa fa-check"></i>Bibliography</a></li>
+</ul></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="methods" class="section level1">
+<h1><span class="header-section-number">2</span> Methods</h1>
+<div id="dataset-details" class="section level2">
+<h2><span class="header-section-number">2.1</span> Dataset details</h2>
+<p>Incl. stats about dataset quality (median no. of fragments per cell, perc. of fragments mapping to peaks, median no. of fragments in peaks per cell)</p>
+<div id="pbmc-dataset" class="section level3">
+<h3><span class="header-section-number">2.1.1</span> PBMC dataset</h3>
+<p>I used datasets of Peripheral Blood Mononuclear Cells (PBMCs) provided by 10X genomics. Raw scRNA-seq counts were extracted from the R object provided by the Seurat package [cit] (downloaded <a href="https://www.dropbox.com/s/3f3p5nxrn5b3y4y/pbmc_10k_v3.rds?dl=1">here</a>). Raw scATAC-seq fragments were converted to a <code>snap</code> file using <code>snaptools</code> (downloaded from <a href="http://renlab.sdsc.edu/r3fang//share/github/PBMC_ATAC_RNA/atac_pbmc_10k_nextgem.snap">here</a>).</p>
+</div>
+<div id="thymus-dataset" class="section level3">
+<h3><span class="header-section-number">2.1.2</span> Thymus dataset</h3>
+<p>I used a dataset of developing thymus at <em>n</em> weeks post conception. scATAC-seq and scRNA-seq profiles were measured from tissue samples of the same donor. Cell type annotation was provided by the authors of the original study.</p>
+</div>
+</div>
+<div id="data-preprocessing" class="section level2">
+<h2><span class="header-section-number">2.2</span> Data preprocessing</h2>
+<p><strong>ATAC-seq featurization</strong>
+ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addition, methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. Different papers use different strategies to preprocess ATAC-seq data and featurization (benchmarked by <span class="citation">Chen et al. (<a href="#ref-chenAssessmentComputationalMethods2019a" role="doc-biblioref">2019</a>)</span>):</p>
+<ul>
+<li><strong>Seurat pipeline</strong>: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v …). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream <span class="citation">(Welch et al. <a href="#ref-welchSingleCellMultiomicIntegration2019a" role="doc-biblioref">2019</a>; Stuart et al. <a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span>.</li>
+<li><strong>SNAP-ATAC pipeline:</strong> the genome is binned, then a cell x bin binary matrix is constructed. From this binary matrix a gene-level matrix is made <span class="citation">(“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types,” <a href="#ref-FastAccurateClusteringa" role="doc-biblioref">n.d.</a>)</span>.</li>
+<li><strong>PCA based on bulk:</strong> some studies <span class="citation">(Buenrostro et al. <a href="#ref-buenrostroIntegratedSingleCellAnalysis2018" role="doc-biblioref">2018</a>)</span> find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations.</li>
+<li><strong>LSI method:</strong> this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy).</li>
+</ul>
+<p>Fragment files for scATAC-seq data were generated using the CellRanger pipeline. For preprocessing and quality control of scATAC-seq data we used the SnapATAC pipeline <span class="citation">(“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types,” <a href="#ref-FastAccurateClusteringa" role="doc-biblioref">n.d.</a>)</span>. Briefly, high-quality cell barcodes are selected based on the number of unique fragments and the ratio of fragments in gene promoters. Then, the genome is binned into fixed-size windows (selected bin size: 5 kb) and a bin x cell binary count matrix is generated estimating coverage for each bin. Bins that overlap ENCODE-defined blacklist regions are filtered out, as well as bins with excidingly high or low z-scored coverage. A cell x gene count matrix is generated aggregating bin coverage over the gene bodies.</p>
+<p><strong>Common preprocessing</strong> Cells with high expression of mitochondrial genes were filtered out of the scRNA-seq dataset. For both datasets, raw counts <span class="math inline">\(c\)</span> were normalized by total cell coverage and converted to <span class="math inline">\(log(c + 1)\)</span> as a variance stabilizing transformation.</p>
+<p><strong>Feature selection</strong> For label transfer, we select informative genes by taking the union of the 2000 most highly variable genes (HVGs) in scRNA-seq and scATAC-seq datasets (using the Seurat function <code>FindVariableGenes</code>). Other studies have used only the HVGs from the reference dataset (in most cases the scRNA-seq). We found that these two feature selection strategies gave similar label transfer results and we opted for the union to avoid selecting only genes that have very low coverage in the ATAC-seq data.</p>
+</div>
+<div id="scatac-seq-data-embedding" class="section level2">
+<h2><span class="header-section-number">2.3</span> scATAC-seq data embedding</h2>
+<p>We performed dimensionality reduction on the bin x cell accessibility matrix using the diffusion map algorithm implemented by SnapATAC. After selection of signification dimensions, we embedded cells for visualization in 2D using the UMAP algorithm.</p>
+</div>
+<div id="tested-integration-methods" class="section level2">
+<h2><span class="header-section-number">2.4</span> Tested integration methods</h2>
+<table style="width:100%;">
+<colgroup>
+<col width="18%" />
+<col width="15%" />
+<col width="33%" />
+<col width="31%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Method</th>
+<th>Reference</th>
+<th align="center">Included in benchmark</th>
+<th align="center">Reason for Excluding</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Seurat CCA</td>
+<td><span class="citation">Stuart et al. (<a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span></td>
+<td align="center">Yes</td>
+<td align="center">/</td>
+</tr>
+<tr class="even">
+<td>LIGER</td>
+<td><span class="citation">Welch et al. (<a href="#ref-welchSingleCellMultiomicIntegration2019a" role="doc-biblioref">2019</a>)</span></td>
+<td align="center">Yes</td>
+<td align="center">/</td>
+</tr>
+<tr class="odd">
+<td>Conos</td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="barkasJointAnalysisHeterogeneous2019"><strong>???</strong></span>)</span></td>
+<td align="center">Yes</td>
+<td align="center">/</td>
+</tr>
+<tr class="even">
+<td>scGen</td>
+<td><span class="citation">Lotfollahi, Wolf, and Theis (<a href="#ref-lotfollahiScGenPredictsSinglecell2019" role="doc-biblioref">2019</a>)</span></td>
+<td align="center">No</td>
+<td align="center">Requires cell type annotation in both datasets</td>
+</tr>
+<tr class="odd">
+<td>totalVI</td>
+<td><span class="citation">Gayoso et al. (<a href="#ref-gayosoJointModelRNA2019" role="doc-biblioref">2019</a>)</span></td>
+<td align="center">No</td>
+<td align="center">Requires multi-omic data from the same single-cells</td>
+</tr>
+<tr class="even">
+<td>BBKNN</td>
+<td><span class="citation">Polański et al. (<a href="#ref-polanskiBBKNNFastBatch" role="doc-biblioref">n.d.</a>)</span></td>
+<td align="center">No</td>
+<td align="center">Bad alignment during testing</td>
+</tr>
+<tr class="odd">
+<td>Cusanovich2018</td>
+<td><span class="citation">Cusanovich et al. (<a href="#ref-cusanovichSingleCellAtlasVivo2018a" role="doc-biblioref">2018</a>)</span></td>
+<td align="center">No</td>
+<td align="center">Code unavailable</td>
+</tr>
+</tbody>
+</table>
+<div id="transfer-label" class="section level3">
+<h3><span class="header-section-number">2.4.1</span> Label transfer</h3>
+<p>One of the key tasks for integration methods is to be able to transfer cell type annotations learnt from a reference to a query dataset. This is especially useful if the query is a scATAC-seq dataset, where calling of cell types based on prior knownledge on marker genes is often not possible. Different models are adapted to transfer discrete cell state labels derived from gene expression to cells measured with scATAC-seq.</p>
+<div id="seurat-cca" class="section level5">
+<h5><span class="header-section-number">2.4.1.0.1</span> Seurat CCA</h5>
+<p>Identified anchor pairs are weighted based on the query cell local neighboorhood (the k nearest anchors) and the anchor score. The obtained reference cells x query cells weight matrix is then multiplied by the matrix of annotation x reference cells, to generate a query cell x annotation matrix. This returns a prediction score for each class for every cell in the query dataset, ranging from 0 to 1 <span class="citation">(Stuart et al. <a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span>.</p>
+</div>
+<div id="liger" class="section level5">
+<h5><span class="header-section-number">2.4.1.0.2</span> LIGER</h5>
+<p>While the authors do not describe a method for transferring discrete labels, I adapted their strategy for feature imputation. I build a cross-dataset KNN graph in the aligned factor space, then I assign each query cell to the most abundant label between the k nearest neighbors in the reference dataset (k=30). The prediction score for label <span class="math inline">\(l\)</span> is computed as the fraction of nearest neighbors that have the predicted label.
+<span class="math display">\[
+score = \frac{count(l)}{k}
+\]</span></p>
+</div>
+<div id="conos" class="section level5">
+<h5><span class="header-section-number">2.4.1.0.3</span> Conos</h5>
+<p>Label transfer is treated as a general problem of information propagation between vertices of the common graph (detailed in <span class="citation">(<span class="citeproc-not-found" data-reference-id="barkasJointAnalysisHeterogeneous2019"><strong>???</strong></span>)</span>). The label score is the label probability updating during the diffusion process.</p>
+<!-- ## Uniform output for all methods  -->
+<!-- - Impute transcriptomic data -->
+<!-- - **Transfer labels from RNA-seq to ATAC-seq** -->
+</div>
+</div>
+</div>
+<div id="metrics-for-comparison-of-integration-models" class="section level2">
+<h2><span class="header-section-number">2.5</span> Metrics for comparison of integration models</h2>
+<p>Problems: finding optimal distance metric for gene accessibility and expression (correlation doesn’t work, too sparse).
+(Or more general: how to relate features from different datasets)
+Nearest neighbors in PCA? How to make a nearest neighbor graph between modalities
+- MNN cosine normalizes each batch and then calculates distances</p>
+<ul>
+<li>PCA on integrated space and find genes with high eigen values</li>
+<li>How to denoise the ATAC data??</li>
+</ul>
+<ol start="2" style="list-style-type: decimal">
+<li>Robustness to different fractions of cells in ATAC dataset</li>
+<li>Leave-one-out approach for imputed data</li>
+<li><strong>Fraction of unassigned cells</strong> (but how to distinguish unassigned and badly assigned?): prediction score from label transfer</li>
+<li><strong>Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies</strong></li>
+<li><strong>Robustness to parameter picking (e.g. no. of factors)</strong></li>
+<li>Agreement metric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell’s NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.</li>
+<li><strong>Expression not at random of markers after integration:</strong> is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator
+<ul>
+<li>Find marker genes from RNA only</li>
+<li>Measure non-random expression in RNA only</li>
+</ul></li>
+<li><strong>pySCENIC on RNA only or integration w ATAC seq</strong></li>
+</ol>
+</div>
+<div id="ideas-for-less-agnostic-integration" class="section level2">
+<h2><span class="header-section-number">2.6</span> Ideas for less “agnostic” integration</h2>
+<ol style="list-style-type: decimal">
+<li>Select only a certain lineage of cells (e.g. that you can align in pseudotime)</li>
+<li>Annotation of cell types also in ATAC-seq data (e.g. to use scGen)</li>
+<li>Considering enhancer accessibility (matching them to genes??)</li>
+</ol>
+</div>
+<div id="biological-interpretation-of-integration" class="section level2">
+<h2><span class="header-section-number">2.7</span> Biological interpretation of integration</h2>
+<p>In Cusanovich et al. 2018 they identify differentially accessible sites &amp; cluster specific accessibility patterns.</p>
+</div>
+<div id="other-random-things" class="section level2">
+<h2><span class="header-section-number">2.8</span> Other random things</h2>
+<ul>
+<li>How does ATAC improve the RNA? Can we detect cell clusters/populations that are highly homogeneous in the RNA
+but display significant variability at the accessibility level? But what is variability in super noisy ATAC seq?</li>
+<li>Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?)
+Could be done on the time series data <span class="citation">Svensson and Pachter (<a href="#ref-svenssonInterpretableFactorModels2019" role="doc-biblioref">2019</a>)</span></li>
+<li>Clonality of epigenetic modifications ATAC + TCR tracing</li>
+</ul>
+</div>
+<div id="bibliography" class="section level2 unnumbered">
+<h2>Bibliography</h2>
+<div id="refs" class="references">
+<div>
+<p>Buenrostro, Jason D., M. Ryan Corces, Caleb A. Lareau, Beijing Wu, Alicia N. Schep, Martin J. Aryee, Ravindra Majeti, Howard Y. Chang, and William J. Greenleaf. 2018. “Integrated Single-Cell Analysis Maps the Continuous Regulatory Landscape of Human Hematopoietic Differentiation.” <em>Cell</em> 173 (6): 1535–1548.e16. <a href="https://doi.org/10.1016/j.cell.2018.03.074">https://doi.org/10.1016/j.cell.2018.03.074</a>.</p>
+</div>
+<div>
+<p>Chen, Huidong, Caleb Lareau, Tommaso Andreani, Michael E. Vinyard, Sara P. Garcia, Kendell Clement, Miguel A. Andrade-Navarro, Jason D. Buenrostro, and Luca Pinello. 2019. “Assessment of Computational Methods for the Analysis of Single-Cell ATAC-Seq Data.” <em>bioRxiv</em>, August, 739011. <a href="https://doi.org/10.1101/739011">https://doi.org/10.1101/739011</a>.</p>
+</div>
+<div>
+<p>Cusanovich, Darren A., Andrew J. Hill, Delasa Aghamirzaie, Riza M. Daza, Hannah A. Pliner, Joel B. Berletch, Galina N. Filippova, et al. 2018. “A Single-Cell Atlas of in Vivo Mammalian Chromatin Accessibility.” <em>Cell</em> 174 (5): 1309–1324.e18. <a href="https://doi.org/10.1016/j.cell.2018.06.052">https://doi.org/10.1016/j.cell.2018.06.052</a>.</p>
+</div>
+<div>
+<p>“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types.” n.d., 41.</p>
+</div>
+<div>
+<p>Gayoso, Adam, Romain Lopez, Zoë Steier, Jeffrey Regier, Aaron Streets, and Nir Yosef. 2019. “A Joint Model of RNA Expression and Surface Protein Abundance in Single Cells.” <em>bioRxiv</em>, October, 791947. <a href="https://doi.org/10.1101/791947">https://doi.org/10.1101/791947</a>.</p>
+</div>
+<div>
+<p>Lotfollahi, Mohammad, F. Alexander Wolf, and Fabian J. Theis. 2019. “scGen Predicts Single-Cell Perturbation Responses.” <em>Nature Methods</em> 16 (8): 715. <a href="https://doi.org/10.1038/s41592-019-0494-8">https://doi.org/10.1038/s41592-019-0494-8</a>.</p>
+</div>
+<div>
+<p>Polański, Krzysztof, Matthew D. Young, Zhichao Miao, Kerstin B. Meyer, Sarah A. Teichmann, and Jong-Eun Park. n.d. “BBKNN: Fast Batch Alignment of Single Cell Transcriptomes.” <em>Bioinformatics</em>. Accessed October 3, 2019. <a href="https://doi.org/10.1093/bioinformatics/btz625">https://doi.org/10.1093/bioinformatics/btz625</a>.</p>
+</div>
+<div>
+<p>Stuart, Tim, Andrew Butler, Paul Hoffman, Christoph Hafemeister, Efthymia Papalexi, William M. Mauck, Yuhan Hao, Marlon Stoeckius, Peter Smibert, and Rahul Satija. 2019. “Comprehensive Integration of Single-Cell Data.” <em>Cell</em> 177 (7): 1888–1902.e21. <a href="https://doi.org/10.1016/j.cell.2019.05.031">https://doi.org/10.1016/j.cell.2019.05.031</a>.</p>
+</div>
+<div>
+<p>Svensson, Valentine, and Lior Pachter. 2019. “Interpretable Factor Models of Single-Cell RNA-Seq via Variational Autoencoders.” Preprint. Bioinformatics. <a href="https://doi.org/10.1101/737601">https://doi.org/10.1101/737601</a>.</p>
+</div>
+<div>
+<p>Welch, Joshua D., Velina Kozareva, Ashley Ferreira, Charles Vanderburg, Carly Martin, and Evan Z. Macosko. 2019. “Single-Cell Multi-Omic Integration Compares and Contrasts Features of Brain Cell Identity.” <em>Cell</em> 177 (7): 1873–1887.e17. <a href="https://doi.org/10.1016/j.cell.2019.05.006">https://doi.org/10.1016/j.cell.2019.05.006</a>.</p>
+</div>
+</div>
+</div>
+</div>
+<h3>References</h3>
+<div id="refs" class="references">
+<div id="ref-buenrostroIntegratedSingleCellAnalysis2018">
+<p>Buenrostro, Jason D., M. Ryan Corces, Caleb A. Lareau, Beijing Wu, Alicia N. Schep, Martin J. Aryee, Ravindra Majeti, Howard Y. Chang, and William J. Greenleaf. 2018. “Integrated Single-Cell Analysis Maps the Continuous Regulatory Landscape of Human Hematopoietic Differentiation.” <em>Cell</em> 173 (6): 1535–1548.e16. <a href="https://doi.org/10.1016/j.cell.2018.03.074">https://doi.org/10.1016/j.cell.2018.03.074</a>.</p>
+</div>
+<div id="ref-chenAssessmentComputationalMethods2019a">
+<p>Chen, Huidong, Caleb Lareau, Tommaso Andreani, Michael E. Vinyard, Sara P. Garcia, Kendell Clement, Miguel A. Andrade-Navarro, Jason D. Buenrostro, and Luca Pinello. 2019. “Assessment of Computational Methods for the Analysis of Single-Cell ATAC-Seq Data.” <em>bioRxiv</em>, August, 739011. <a href="https://doi.org/10.1101/739011">https://doi.org/10.1101/739011</a>.</p>
+</div>
+<div id="ref-cusanovichSingleCellAtlasVivo2018a">
+<p>Cusanovich, Darren A., Andrew J. Hill, Delasa Aghamirzaie, Riza M. Daza, Hannah A. Pliner, Joel B. Berletch, Galina N. Filippova, et al. 2018. “A Single-Cell Atlas of in Vivo Mammalian Chromatin Accessibility.” <em>Cell</em> 174 (5): 1309–1324.e18. <a href="https://doi.org/10.1016/j.cell.2018.06.052">https://doi.org/10.1016/j.cell.2018.06.052</a>.</p>
+</div>
+<div id="ref-FastAccurateClusteringa">
+<p>“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types.” n.d., 41.</p>
+</div>
+<div id="ref-gayosoJointModelRNA2019">
+<p>Gayoso, Adam, Romain Lopez, Zoë Steier, Jeffrey Regier, Aaron Streets, and Nir Yosef. 2019. “A Joint Model of RNA Expression and Surface Protein Abundance in Single Cells.” <em>bioRxiv</em>, October, 791947. <a href="https://doi.org/10.1101/791947">https://doi.org/10.1101/791947</a>.</p>
+</div>
+<div id="ref-lotfollahiScGenPredictsSinglecell2019">
+<p>Lotfollahi, Mohammad, F. Alexander Wolf, and Fabian J. Theis. 2019. “scGen Predicts Single-Cell Perturbation Responses.” <em>Nature Methods</em> 16 (8): 715. <a href="https://doi.org/10.1038/s41592-019-0494-8">https://doi.org/10.1038/s41592-019-0494-8</a>.</p>
+</div>
+<div id="ref-polanskiBBKNNFastBatch">
+<p>Polański, Krzysztof, Matthew D. Young, Zhichao Miao, Kerstin B. Meyer, Sarah A. Teichmann, and Jong-Eun Park. n.d. “BBKNN: Fast Batch Alignment of Single Cell Transcriptomes.” <em>Bioinformatics</em>. Accessed October 3, 2019. <a href="https://doi.org/10.1093/bioinformatics/btz625">https://doi.org/10.1093/bioinformatics/btz625</a>.</p>
+</div>
+<div id="ref-stuartComprehensiveIntegrationSingleCell2019a">
+<p>Stuart, Tim, Andrew Butler, Paul Hoffman, Christoph Hafemeister, Efthymia Papalexi, William M. Mauck, Yuhan Hao, Marlon Stoeckius, Peter Smibert, and Rahul Satija. 2019. “Comprehensive Integration of Single-Cell Data.” <em>Cell</em> 177 (7): 1888–1902.e21. <a href="https://doi.org/10.1016/j.cell.2019.05.031">https://doi.org/10.1016/j.cell.2019.05.031</a>.</p>
+</div>
+<div id="ref-svenssonInterpretableFactorModels2019">
+<p>Svensson, Valentine, and Lior Pachter. 2019. “Interpretable Factor Models of Single-Cell RNA-Seq via Variational Autoencoders.” Preprint. Bioinformatics. <a href="https://doi.org/10.1101/737601">https://doi.org/10.1101/737601</a>.</p>
+</div>
+<div id="ref-welchSingleCellMultiomicIntegration2019a">
+<p>Welch, Joshua D., Velina Kozareva, Ashley Ferreira, Charles Vanderburg, Carly Martin, and Evan Z. Macosko. 2019. “Single-Cell Multi-Omic Integration Compares and Contrasts Features of Brain Cell Identity.” <em>Cell</em> 177 (7): 1873–1887.e17. <a href="https://doi.org/10.1016/j.cell.2019.05.006">https://doi.org/10.1016/j.cell.2019.05.006</a>.</p>
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="results.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"linkedin": false,
+"weibo": false,
+"instapaper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": null,
+"text": null
+},
+"history": {
+"link": null,
+"text": null
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+},
+"search": false
+});
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+</body>
+
+</html>

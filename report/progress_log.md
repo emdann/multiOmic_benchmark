@@ -1,6 +1,43 @@
 Benchmarking methods for alignment of scRNA-sea and scATAC-seq data
 ================
 
+# Results
+
+## Label transfer comparison on PBMC dataset
+
+We run our initial benchmark on a publicly available dataset of
+Peripheral Blood Mononuclear Cells (PBMC) downloaded from the
+10XGenomics website.
+
+We first evaluate the ability of different methods to transfer cell type
+annotations derived from scRNA-seq data to scATAC-seq data of the same
+tissue (See Methods (transfer-label) for details about label transfer
+procedure for each method). Visualizing the predicted label assignments
+on the embedding of ATAC cells based on the bin x cells matrix, we find
+that for all the methods the label assignment have some coincidence with
+the clusters from ATAC data alone.
+![figure](../output/20191106_labelTransferEDA_PBMC/umap_labels.png)
+
+![UMAP of
+ATAC](../output/20191106_labelTransferEDA_PBMC/umap_labels.png)
+
+All integration methods measure the uncertainty of their assignment
+(Fig.A). Setting a threshold on the label prediction score allows to
+remove from downstream analysis cells with a low confidence prediction
+label, and mark them as unasssigned. We found that at the cutoff of 0.5,
+suggested by Stuart et al.
+([2019](#ref-stuartComprehensiveIntegrationSingleCell2019a)), Liger
+excludes the least amount of cells, while Conos scores the most cells
+with higher confidence (Fig.@ref(fig:predict-score)B).
+
+![Distribution of prediction scores for each
+method](../output/20191106_labelTransferEDA_PBMC/prediction_score_distribution.png)
+
+![Simulated data
+analysis](../output/20191106_labelTransferEDA_PBMC/%20KNN_score_ecdf_referenceHVG.png)
+
+# Methods
+
 ## Dataset details
 
 Incl. stats about dataset quality (median no. of fragments per cell,

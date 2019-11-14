@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</title>
+  <meta name="description" content="Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <meta name="generator" content="bookdown 0.14 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  
+  
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+
+<link rel="next" href="methods.html"/>
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="1" data-path="results.html"><a href="results.html"><i class="fa fa-check"></i><b>1</b> Results</a><ul>
+<li class="chapter" data-level="1.1" data-path="results.html"><a href="results.html#label-transfer-comparison-on-pbmc-dataset"><i class="fa fa-check"></i><b>1.1</b> Label transfer comparison on PBMC dataset</a></li>
+<li class="chapter" data-level="1.2" data-path="results.html"><a href="results.html#label-transfer-comparison-on-thymus-dataset"><i class="fa fa-check"></i><b>1.2</b> Label transfer comparison on Thymus dataset</a></li>
+<li class="chapter" data-level="1.3" data-path="results.html"><a href="results.html#what-next"><i class="fa fa-check"></i><b>1.3</b> What next?</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="methods.html"><a href="methods.html"><i class="fa fa-check"></i><b>2</b> Methods</a><ul>
+<li class="chapter" data-level="2.1" data-path="methods.html"><a href="methods.html#dataset-details"><i class="fa fa-check"></i><b>2.1</b> Dataset details</a><ul>
+<li class="chapter" data-level="2.1.1" data-path="methods.html"><a href="methods.html#pbmc-dataset"><i class="fa fa-check"></i><b>2.1.1</b> PBMC dataset</a></li>
+<li class="chapter" data-level="2.1.2" data-path="methods.html"><a href="methods.html#thymus-dataset"><i class="fa fa-check"></i><b>2.1.2</b> Thymus dataset</a></li>
+</ul></li>
+<li class="chapter" data-level="2.2" data-path="methods.html"><a href="methods.html#data-preprocessing"><i class="fa fa-check"></i><b>2.2</b> Data preprocessing</a></li>
+<li class="chapter" data-level="2.3" data-path="methods.html"><a href="methods.html#scatac-seq-data-embedding"><i class="fa fa-check"></i><b>2.3</b> scATAC-seq data embedding</a></li>
+<li class="chapter" data-level="2.4" data-path="methods.html"><a href="methods.html#tested-integration-methods"><i class="fa fa-check"></i><b>2.4</b> Tested integration methods</a><ul>
+<li class="chapter" data-level="2.4.1" data-path="methods.html"><a href="methods.html#transfer-label"><i class="fa fa-check"></i><b>2.4.1</b> Label transfer</a></li>
+</ul></li>
+<li class="chapter" data-level="2.5" data-path="methods.html"><a href="methods.html#metrics-for-comparison-of-integration-models"><i class="fa fa-check"></i><b>2.5</b> Metrics for comparison of integration models</a></li>
+<li class="chapter" data-level="2.6" data-path="methods.html"><a href="methods.html#ideas-for-less-agnostic-integration"><i class="fa fa-check"></i><b>2.6</b> Ideas for less “agnostic” integration</a></li>
+<li class="chapter" data-level="2.7" data-path="methods.html"><a href="methods.html#biological-interpretation-of-integration"><i class="fa fa-check"></i><b>2.7</b> Biological interpretation of integration</a></li>
+<li class="chapter" data-level="2.8" data-path="methods.html"><a href="methods.html#other-random-things"><i class="fa fa-check"></i><b>2.8</b> Other random things</a></li>
+<li class="chapter" data-level="" data-path="methods.html"><a href="methods.html#bibliography"><i class="fa fa-check"></i>Bibliography</a></li>
+</ul></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="header">
+<h1 class="title">Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</h1>
+</div>
+<div id="results" class="section level1">
+<h1><span class="header-section-number">1</span> Results</h1>
+<div id="label-transfer-comparison-on-pbmc-dataset" class="section level2">
+<h2><span class="header-section-number">1.1</span> Label transfer comparison on PBMC dataset</h2>
+<p>We run our initial benchmark on a publicly available dataset of Peripheral Blood Mononuclear Cells (PBMC) downloaded from the 10XGenomics website.</p>
+<p>We first evaluate the ability of different methods to transfer cell type annotations derived from scRNA-seq data to scATAC-seq data of the same tissue (See Methods <a href="methods.html#transfer-label">2.4.1</a> for details about label transfer procedure for each method).</p>
+<div class="figure"><span id="fig:frac-query"></span>
+<img src="output/20191111_fracQuery/runtime.png" alt="Varying fraction of query cells" width="900" />
+<p class="caption">
+Figure 1.1: Varying fraction of query cells
+</p>
+</div>
+<p><img src="output/20191111_fracQuery/ARI.png" alt="Varying fraction of query cells" width="900" /></p>
+<p>Visualizing the predicted label assignments on the embedding of ATAC cells based on the bin x cells matrix, we find that for all the methods the label assignment have some coincidence with the clusters from ATAC data alone.</p>
+<div class="figure"><span id="fig:label-transfer-umap"></span>
+<img src="output/20191106_labelTransferEDA_PBMC/umap_labels.png" alt="UMAP of ATAC" width="2700" />
+<p class="caption">
+Figure 1.2: UMAP of ATAC
+</p>
+</div>
+<p>All integration methods measure the uncertainty of their assignment (Fig.<a href="results.html#fig:predict-score">1.3</a>A). Setting a threshold on the label prediction score allows to remove from downstream analysis cells with a low confidence prediction label, and mark them as unasssigned. We found that at the cutoff of 0.5, suggested by <span class="citation">Stuart et al. (<a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span>, Liger excludes the least amount of cells, while Conos scores the most cells with higher confidence (Fig.<a href="results.html#fig:predict-score">1.3</a>B).</p>
+<div class="figure"><span id="fig:predict-score"></span>
+<img src="output/20191106_labelTransferEDA_PBMC/prediction_score_distribution.png" alt="**Distribution of prediction scores for each method**" width="1500" />
+<p class="caption">
+Figure 1.3: <strong>Distribution of prediction scores for each method</strong>
+</p>
+</div>
+Taking a closer look at predicted label composition and confidence score for each cell type, we found that the different methods called similar fractions of cells for the same labels. On average Liger score with lower confidence smaller cell populations, such as pDCs, platelets, CD8+ naive cells.
+<div class="figure"><span id="fig:label-comp"></span>
+<img src="output/20191106_labelTransferEDA_PBMC/cell_type_composition_bars.png" alt="Fraction of cells assigned to labels." width="2250" />
+<p class="caption">
+Figure 1.4: Fraction of cells assigned to labels.
+</p>
+</div>
+<p>We wanted to evaluate if the predicted annotations maintain the structure found when clustering cells based on bin accessibility alone, i.e. if cells that have a similar bin accessibility profile also get annotated with the same cell type. For each cell we measure the fraction of the K nearest neighbors that share the same predicted label (KNN score). Looking at the distributions of KNN scores, we find that Liger maintains the original connectivity structure better, followed by Conos and finally CCA, even if the differences are not that substantial. Also the KNN score is dependent on the assigned cell type.</p>
+<div class="figure"><span id="fig:knn-ecdf"></span>
+<img src="output/20191106_labelTransferEDA_PBMC/%20KNN_score_ecdf_unionHVG.png" alt="Cumulative distributions of KNN scores" width="900" />
+<p class="caption">
+Figure 1.5: Cumulative distributions of KNN scores
+</p>
+</div>
+<p>We checked accessibility of PBMC marker genes in the called cell types. We found that cell populations called with CCA show accessibility of expected marker genes from transcriptomics, for NK cells, monocytes, CD8+ cells, and the platelets even.</p>
+<div class="figure"><span id="fig:markers"></span>
+<img src="output/20191106_labelTransferEDA_PBMC/PBMC_markers_accessibility.png" alt="Accessibility of markers in predicted cell clusters" width="1800" />
+<p class="caption">
+Figure 1.6: Accessibility of markers in predicted cell clusters
+</p>
+</div>
+</div>
+<div id="label-transfer-comparison-on-thymus-dataset" class="section level2">
+<h2><span class="header-section-number">1.2</span> Label transfer comparison on Thymus dataset</h2>
+<div class="figure"><span id="fig:label-transfer-thymus"></span>
+<img src="output/20191106_labelTransferEDA_F74/umap_labels.png" alt="UMAP of predicted labels for thymus dataset" width="2400" />
+<p class="caption">
+Figure 1.7: UMAP of predicted labels for thymus dataset
+</p>
+</div>
+<div class="figure"><span id="fig:pred-score-thymus"></span>
+<img src="output/20191106_labelTransferEDA_F74/prediction_score_distribution.png" alt="Prediction scores for thymus dataset" width="1500" />
+<p class="caption">
+Figure 1.8: Prediction scores for thymus dataset
+</p>
+</div>
+<p><img src="output/20191106_labelTransferEDA_F74/prediction_score_umaps.png" alt="Prediction scores for thymus dataset" width="2100" /></p>
+<p>Cell type composition</p>
+<div class="figure"><span id="fig:cell-comp-thymus"></span>
+<img src="output/20191106_labelTransferEDA_F74/cell_type_composition_bars.png" alt="Predicted cell type compositions for thymus dataset" width="2250" />
+<p class="caption">
+Figure 1.9: Predicted cell type compositions for thymus dataset
+</p>
+</div>
+CCA is also better at maintaining the nearest neighboorhood structure from the ATAC alone in its label assignments
+<div class="figure"><span id="fig:knn-score-thymus"></span>
+<img src="output/20191106_labelTransferEDA_F74/KNN_score_ecdf_referenceHVG.png" alt="KNN agreement score for thymus dataset"  />
+<p class="caption">
+Figure 1.10: KNN agreement score for thymus dataset
+</p>
+</div>
+This is irrespective of the feature selection method of choice
+<div class="figure"><span id="fig:unionvsref-thymus"></span>
+<img src="output/20191106_labelTransferEDA_F74/unionVSreference_KNN.png" alt="KNN agreement score for thymus dataset" width="1500" />
+<p class="caption">
+Figure 1.11: KNN agreement score for thymus dataset
+</p>
+</div>
+<div class="figure"><span id="fig:markers-thymus"></span>
+<img src="output/20191106_labelTransferEDA_F74/Thymus_markers_accessibility.png" alt="Accessibility of known thymic markers in predicted cell types" width="1800" />
+<p class="caption">
+Figure 1.12: Accessibility of known thymic markers in predicted cell types
+</p>
+</div>
+<p>Trying to reproduce accessibility profiles of ordered T-cell populations (see Fig. 2H of JP’s manuscript).</p>
+<ul>
+<li>Good: TOX2, ST18, SATB1 on the entry cells, cyclin D genes,</li>
+<li>Weird: CD8 accessibility for CD4 cells (possibly wrongly assigned double positives?)</li>
+</ul>
+<div class="figure"><span id="fig:markers-tcells"></span>
+<img src="output/20191106_labelTransferEDA_F74/tcell_markers.png" alt="Accessibility of known T-cells markers in predicted cell types" width="2100" />
+<p class="caption">
+Figure 1.13: Accessibility of known T-cells markers in predicted cell types
+</p>
+</div>
+</div>
+<div id="what-next" class="section level2">
+<h2><span class="header-section-number">1.3</span> What next?</h2>
+<ul>
+<li>Evaluate label transfer for different cluster sizes</li>
+<li>Label transfer w bigger clusters provided by Cecilia</li>
+<li>MATCHER comparison: CCA seems able to reconstruct the main differences between differentiating T-cells. Will MATCHER find the same relationships between cells?</li>
+<li>Integration w imputation instead of label transfer</li>
+<li>Performance comparison on matched joint profilinf of ATAC - RNA on the same cells</li>
+</ul>
+</div>
+</div>
+<h3>References</h3>
+<div id="refs" class="references">
+<div id="ref-stuartComprehensiveIntegrationSingleCell2019a">
+<p>Stuart, Tim, Andrew Butler, Paul Hoffman, Christoph Hafemeister, Efthymia Papalexi, William M. Mauck, Yuhan Hao, Marlon Stoeckius, Peter Smibert, and Rahul Satija. 2019. “Comprehensive Integration of Single-Cell Data.” <em>Cell</em> 177 (7): 1888–1902.e21. <a href="https://doi.org/10.1016/j.cell.2019.05.031">https://doi.org/10.1016/j.cell.2019.05.031</a>.</p>
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+
+<a href="methods.html" class="navigation navigation-next navigation-unique" aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"linkedin": false,
+"weibo": false,
+"instapaper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": null,
+"text": null
+},
+"history": {
+"link": null,
+"text": null
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+},
+"search": false
+});
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+</body>
+
+</html>

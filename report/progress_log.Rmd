@@ -1,16 +1,121 @@
 ---
 title: "Benchmarking methods for alignment of scRNA-sea and scATAC-seq data"
-output: github_document
+output: bookdown::gitbook
 bibliography: bibliography.bib
 link-citations: true
 ---
 
+# Results
+
+## Label transfer comparison on PBMC dataset
+
+We run our initial benchmark on a publicly available dataset of Peripheral Blood Mononuclear Cells (PBMC) downloaded from the 10XGenomics website.
+
+We first evaluate the ability of different methods to transfer cell type annotations derived from scRNA-seq data to scATAC-seq data of the same tissue (See Methods \@ref(transfer-label) for details about label transfer procedure for each method). 
+
+```{r frac-query, fig.show='hold', fig.cap="Varying fraction of query cells", echo=FALSE}
+knitr::include_graphics("output/20191111_fracQuery/runtime.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191111_fracQuery/ARI.png", auto_pdf = TRUE)
+```
+
+Visualizing the predicted label assignments on the embedding of ATAC cells based on the bin x cells matrix, we find that for all the methods the label assignment have some coincidence with the clusters from ATAC data alone. 
+
+```{r label-transfer-umap, fig.show="hold", fig.cap="UMAP of ATAC", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/umap_labels.png")
+```
+
+All integration methods measure the uncertainty of their assignment (Fig.\@ref(fig:predict-score)A). Setting a threshold on the label prediction score allows to remove from downstream analysis cells with a low confidence prediction label, and mark them as unasssigned. We found that at the cutoff of 0.5, suggested by @stuartComprehensiveIntegrationSingleCell2019a, Liger excludes the least amount of cells, while Conos scores the most cells with higher confidence (Fig.\@ref(fig:predict-score)B). 
+
+```{r predict-score, fig.show='hold', fig.cap="**Distribution of prediction scores for each method**", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/prediction_score_distribution.png", auto_pdf = TRUE)
+```
+
+Taking a closer look at predicted label composition and confidence score for each cell type, we found that the different methods called similar fractions of cells for the same labels. On average Liger score with lower confidence smaller cell populations, such as pDCs, platelets, CD8+ naive cells. 
+```{r label-comp, fig.show='hold', fig.cap="Fraction of cells assigned to labels.", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/cell_type_composition_bars.png", auto_pdf = TRUE)
+```
+
+We wanted to evaluate if the predicted annotations maintain the structure found when clustering cells based on bin accessibility alone, i.e. if cells that have a similar bin accessibility profile also get annotated with the same cell type. For each cell we measure the fraction of the K nearest neighbors that share the same predicted label (KNN score). Looking at the distributions of KNN scores, we find that Liger maintains the original connectivity structure better, followed by Conos and finally CCA, even if the differences are not that substantial. Also the KNN score is dependent on the assigned cell type.
+
+```{r knn-ecdf, fig.show='hold', fig.cap="Cumulative distributions of KNN scores", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/ KNN_score_ecdf_unionHVG.png", auto_pdf = TRUE)
+```
+
+We checked accessibility of PBMC marker genes in the called cell types. We found that cell populations called with CCA show accessibility of expected marker genes from transcriptomics, for NK cells, monocytes, CD8+ cells, and the platelets even.
+
+```{r markers, fig.show='hold', fig.cap="Accessibility of markers in predicted cell clusters", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/PBMC_markers_accessibility.png", auto_pdf = TRUE)
+```
+
+
+## Label transfer comparison on Thymus dataset
+
+```{r label-transfer-thymus, fig.show='hold', fig.cap="UMAP of predicted labels for thymus dataset", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/umap_labels.png", auto_pdf = TRUE)
+```
+
+
+
+
+```{r pred-score-thymus, fig.show='hold', fig.cap="Prediction scores for thymus dataset", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/prediction_score_distribution.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/prediction_score_umaps.png", auto_pdf = TRUE)
+```
+
+
+Cell type composition
+
+```{r cell-comp-thymus, fig.show='hold', fig.cap="Predicted cell type compositions for thymus dataset", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/cell_type_composition_bars.png", auto_pdf = TRUE)
+```
+
+CCA is also better at maintaining the nearest neighboorhood structure from the ATAC alone in its label assignments
+```{r knn-score-thymus, fig.show='hold', fig.cap="KNN agreement score for thymus dataset", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/KNN_score_ecdf_referenceHVG.png", auto_pdf = TRUE)
+```
+
+This is irrespective of the feature selection method of choice
+```{r unionvsref-thymus, fig.show='hold', fig.cap="KNN agreement score for thymus dataset", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/unionVSreference_KNN.png", auto_pdf = TRUE)
+```
+
+
+
+```{r markers-thymus, fig.show='hold', fig.cap="Accessibility of known thymic markers in predicted cell types", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/Thymus_markers_accessibility.png", auto_pdf = TRUE)
+```
+
+Trying to reproduce accessibility profiles of ordered T-cell populations (see Fig. 2H of JP's manuscript). 
+
+- Good: TOX2, ST18, SATB1 on the entry cells, cyclin D genes, 
+- Weird: CD8 accessibility for CD4 cells (possibly wrongly assigned double positives?)
+
+```{r markers-tcells, fig.show='hold', fig.cap="Accessibility of known T-cells markers in predicted cell types", echo=FALSE}
+knitr::include_graphics("output/20191106_labelTransferEDA_F74/tcell_markers.png", auto_pdf = TRUE)
+```
+
+## What next?
+
+- Evaluate label transfer for different cluster sizes
+- Label transfer w bigger clusters provided by Cecilia
+- MATCHER comparison: CCA seems able to reconstruct the main differences between differentiating T-cells. Will MATCHER find the same relationships between cells? 
+- Integration w imputation instead of label transfer
+- Performance comparison on matched joint profilinf of ATAC - RNA on the same cells
+
+# Methods
+
 ## Dataset details 
 Incl. stats about dataset quality (median no. of fragments per cell, perc. of fragments mapping to peaks, median no. of fragments in peaks per cell)
 
+### PBMC dataset
+I used datasets of Peripheral Blood Mononuclear Cells (PBMCs) provided by 10X genomics. Raw scRNA-seq counts were extracted from the R object provided by the Seurat package [cit] (downloaded [here](https://www.dropbox.com/s/3f3p5nxrn5b3y4y/pbmc_10k_v3.rds?dl=1)). Raw scATAC-seq fragments were converted to a `snap` file using `snaptools` (downloaded from [here](http://renlab.sdsc.edu/r3fang//share/github/PBMC_ATAC_RNA/atac_pbmc_10k_nextgem.snap)).
+
+### Thymus dataset
+I used a dataset of developing thymus at *n* weeks post conception. scATAC-seq and scRNA-seq profiles were measured from tissue samples of the same donor. Cell type annotation was provided by the authors of the original study.  
+
 ## Data preprocessing
 
-### ATAC-seq
+**ATAC-seq featurization** 
 ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addition, methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. Different papers use different strategies to preprocess ATAC-seq data and featurization (benchmarked by @chenAssessmentComputationalMethods2019a):
 
 - **Seurat pipeline**: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream [@welchSingleCellMultiomicIntegration2019a; @stuartComprehensiveIntegrationSingleCell2019a]. 
@@ -18,14 +123,16 @@ ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addi
 - **PCA based on bulk:** some studies [@buenrostroIntegratedSingleCellAnalysis2018] find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations.
 - **LSI method:** this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy).
 
-### RNA-seq
+Fragment files for scATAC-seq data were generated using the CellRanger pipeline. For preprocessing and quality control of scATAC-seq data we used the SnapATAC pipeline [@FastAccurateClusteringa]. Briefly, high-quality cell barcodes are selected based on the number of unique fragments and the ratio of fragments in gene promoters. Then, the genome is binned into fixed-size windows (selected bin size: 5 kb) and a bin x cell binary count matrix is generated estimating coverage for each bin. Bins that overlap ENCODE-defined blacklist regions are filtered out, as well as bins with excidingly high or low z-scored coverage. A cell x gene count matrix is generated aggregating bin coverage over the gene bodies. 
 
-Both datasets where preprocessed with std steps: removal of empty/lowQ cells, normalization per cell coverage, 
+**Common preprocessing** Cells with high expression of mitochondrial genes were filtered out of the scRNA-seq dataset. For both datasets, raw counts $c$ were normalized by total cell coverage and converted to $log(c + 1)$ as a variance stabilizing transformation.
 
-#### Feature selection
-- Highly-variable genes in RNA
-- genes that are expressed only in a few cells 
-- Also ATAC specific markers are informative, contain signal from known marker genes in thymic development. Probably beneficial for alignment to take the union and not only the HVGs from RNA. 
+**Feature selection** For label transfer, we select informative genes by taking the union of the 2000 most highly variable genes (HVGs) in scRNA-seq and scATAC-seq datasets (using the Seurat function `FindVariableGenes`). Other studies have used only the HVGs from the reference dataset (in most cases the scRNA-seq). We found that these two feature selection strategies gave similar label transfer results and we opted for the union to avoid selecting only genes that have very low coverage in the ATAC-seq data. 
+
+## scATAC-seq data embedding
+
+We performed dimensionality reduction on the bin x cell accessibility matrix using the diffusion map algorithm implemented by SnapATAC. After selection of signification dimensions, we embedded cells for visualization in 2D using the UMAP algorithm. 
+
 
 ## Tested integration methods 
 
@@ -40,7 +147,7 @@ Both datasets where preprocessed with std steps: removal of empty/lowQ cells, no
 | Cusanovich2018 | @cusanovichSingleCellAtlasVivo2018a | No | Code unavailable |
 
 
-### Label transfer
+### Label transfer {#transfer-label}
 One of the key tasks for integration methods is to be able to transfer cell type annotations learnt from a reference to a query dataset. This is especially useful if the query is a scATAC-seq dataset, where calling of cell types based on prior knownledge on marker genes is often not possible. Different models are adapted to transfer discrete cell state labels derived from gene expression to cells measured with scATAC-seq.
 
 ##### Seurat CCA
@@ -52,6 +159,7 @@ While the authors do not describe a method for transferring discrete labels, I a
 $$
 score = \frac{count(l)}{k}
 $$
+
 ##### Conos
 Label transfer is treated as a general problem of information propagation between vertices of the common graph (detailed in @barkasJointAnalysisHeterogeneous2019). The label score is the label probability updating during the diffusion process.
 

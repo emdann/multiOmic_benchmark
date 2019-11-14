@@ -20,22 +20,22 @@ gg_color_hue <- function(n) {
 }
 
 ## Make output directory
-outdir <- "~/multiOmic_benchmark/output/20191106_labelTransferEDA_PBMC/"
+outdir <- "~/multiOmic_benchmark/report/output/20191106_labelTransferEDA_PBMC/"
 ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
 
 ```
 
 
 ```{r}
-model.cca <- readRDS("~/models/modelCCA_reference_hvg_PBMC_SCElist_20191105.RDS")
-model.liger <- readRDS("~/models/modelLiger_reference_hvg_PBMC_SCElist_20191105.RDS")
-model.conos <- readRDS("~/models/modelConos_reference_hvg_PBMC_SCElist_20191105.RDS")
+# model.cca <- readRDS("~/models/modelCCA_union_hvg_PBMC_SCElist_20191105.RDS")
+# model.liger <- readRDS("~/models/modelLiger_union_hvg_PBMC_SCElist_20191105.RDS")
+# model.conos <- readRDS("~/models/modelConos_union_hvg_PBMC_SCElist_20191105.RDS")
+# 
+seu.cca <- readRDS("~/models/labelTransferCCA_union_hvg_PBMC_SCElist_20191105.RDS")
+seu.liger <- readRDS("~/models/labelTransferLiger_union_hvg_PBMC_SCElist_20191105.RDS")
+seu.conos <- readRDS("~/models/labelTransferConos_union_hvg_PBMC_SCElist_20191105.RDS")
 
-seu.cca <- readRDS("~/models/labelTransferCCA_reference_hvg_PBMC_SCElist_20191105.RDS")
-seu.liger <- readRDS("~/models/labelTransferLiger_reference_hvg_PBMC_SCElist_20191105.RDS")
-seu.conos <- readRDS("~/models/labelTransferConos_reference_hvg_PBMC_SCElist_20191105.RDS")
-
-integrate_features <- model.cca$model@anchor.features
+integrate_features <- scan("~/models/intFeatures_union_hvg_2000_F74_SCElist_20191101.txt", what = "")
 
 int.list <- list(CCA=seu.cca, Liger=seu.liger, Conos=seu.conos)
 
@@ -45,7 +45,7 @@ method.palette <- brewer_palette_4_values(names(int.list), "Set1")
 ```
 
 ### Embeddings
-Visualize label transfer on original ATAC data (embedded SnapATAC bins)
+Visualize label transfer on original ATAC data (embedded SnapATAC bins) and compare with embedding of RNA-seq data
 ```{r}
 ## Load original data
 orig.ATAC <- readRDS("~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
@@ -89,33 +89,34 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
 cell.types <- levels(seu.cca$RNA$annotation)
 cell.type.pal <- setNames(gg_color_hue(length(cell.types)), cell.types)
 
-atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:20)
-
-ggpubr::ggarrange(
-  plotlist = list(
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("CCA"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Liger"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos")
-  ),
-  common.legend = TRUE, ncol=3, nrow=1
-)
-```
-
-```{r}
-pl <-     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos")
-plotly::ggplotly(pl)
-```
-
-
-```{r}
+## Embed RNA
 orig.RNA.seu <- as.Seurat(orig.RNA)
 orig.RNA.seu <- FindVariableFeatures(orig.RNA.seu)
 orig.RNA.seu <- ScaleData(orig.RNA.seu)
 orig.RNA.seu <- RunPCA(orig.RNA.seu)
 orig.RNA.seu <- RunUMAP(orig.RNA.seu, dims=1:30)
 
-DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE)
+## Embed ATAC
+atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:20)
+
+ggpubr::ggarrange(
+    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal) + ggtitle("scRNA-seq"),
+  plotlist = list(
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=F) + ggtitle("scATAC-seq - CCA"),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=F) + ggtitle("scATAC-seq - Liger"),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=F) + ggtitle("scATAC-seq - Conos")
+    ),
+  common.legend = TRUE, ncol=4, nrow=1
+  ) +
+  ggsave(paste0(outdir, "umap_labels.png"), width=18, height = 8)
+
+
 ```
+
+<!-- ```{r} -->
+<!-- pl <-     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Liger") -->
+<!-- plotly::ggplotly(pl) -->
+<!-- ``` -->
 
 ## Prediction score
 Quantifies the uncertainty of the prediction. Calculated differently for every method, but used to define which cells are "unassigned".
@@ -168,7 +169,7 @@ predict_score_cumedist <-
 
 ggarrange(predict_score_hist, predict_score_cumedist, common.legend = TRUE, widths = c(0.8, 1.2),
           labels=c("A", "B")) +
-  ggsave(paste0(outdir, "prediction_score_distribution.pdf"), height = 6, width = 10)
+  ggsave(paste0(outdir, "prediction_score_distribution.png"), height = 6, width = 10)
 ```
 
 ```{r, fig.width=16, fig.height=8}
@@ -180,14 +181,42 @@ ggpubr::ggarrange(
   ),
   common.legend = TRUE, ncol=3, nrow=1
 ) +
-  ggsave(paste0(outdir, "prediction_score_umaps.pdf"), height = 7, width=14)
+  ggsave(paste0(outdir, "prediction_score_umaps.png"), height = 7, width=14)
 ```
 
 
 ## Cell type composition
-
 Compare cell type fractions (w uncertainty)
-```{r, fig.height=8, fig.width=8}
+<!-- Compare cell type fractions (w uncertainty) -->
+<!-- ```{r, fig.height=7, fig.width=6} -->
+
+<!-- pred.labels.df %>% -->
+<!--   group_by(method) %>% -->
+<!--   drop_na() %>% -->
+<!--   mutate(tot.cells=n()) %>% -->
+<!--   ungroup() %>% -->
+<!--   group_by(method, predicted.id) %>% -->
+<!--   summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=mean(score)) %>% -->
+<!--   mutate(frac.label=tot.label/tot.cells) %>% -->
+<!--   # bind_rows(orig.frac.df) %>% -->
+<!--   ggplot(aes(method, predicted.id)) + -->
+<!--   geom_point(aes(color=mean.score, size=frac.label)) + -->
+<!--   scale_color_viridis_c(name="Mean prediction\nscore") + -->
+<!--   scale_shape(name="Fraction of cells") + -->
+<!--   # scale_color_gradient(low ="grey", high="red") + -->
+<!--   theme_classic(base_size = 16) + -->
+<!--   ggsave(paste0(outdir, "cell_type_composition.png"), width=6, height = 6) -->
+
+
+<!-- ``` -->
+
+```{r, fig.width=14, fig.height=7}
+orig.rank.df <- orig.frac.df %>% 
+  mutate(orig.rank=dense_rank(frac.label)) %>%
+  select(orig.rank, predicted.id) %>%
+  distinct() %>%
+  arrange(orig.rank) %>%
+  column_to_rownames("predicted.id") 
 
 pred.labels.df %>%
   group_by(method) %>%
@@ -197,89 +226,52 @@ pred.labels.df %>%
   group_by(method, predicted.id) %>%
   summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=mean(score)) %>%
   mutate(frac.label=tot.label/tot.cells) %>%
-  # bind_rows(orig.frac.df) %>%
-  ggplot(aes(method, predicted.id)) +
-  geom_point(aes(color=mean.score, size=frac.label)) +
-  scale_color_continuous() +
-  scale_color_gradient(low ="grey", high="blue") +
-  theme_classic(base_size = 16)
-  
-
-```
-
-Does the uncertainty depend on the size of the cluster?
-```{r, fig.width=14, fig.height=5}
-
-pred.labels.df %>%
-  group_by(method) %>%
-  drop_na() %>%
-  mutate(tot.cells=n()) %>%
-  ungroup() %>%
-  group_by(method, predicted.id) %>%
-  summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=median(score), sd.score=mad(score)) %>%
-  mutate(frac.label=tot.label/tot.cells) %>%
-  # bind_rows(orig.frac.df) %>%
-  ggplot(aes(frac.label, mean.score, color=method)) +
+  bind_rows(orig.frac.df) %>%
+  mutate(orig.rank = orig.rank.df[predicted.id,]) %>%
+  mutate(predicted.id=factor(predicted.id, levels=rownames(orig.rank.df)))%>%
+  # select(method, predicted.id, frac.label) %>%
+  # distinct() %>%
+  ggplot(aes(predicted.id, frac.label, fill=mean.score, color=mean.score)) +
   geom_point(size=2) +
-  geom_errorbar(aes(ymin=mean.score-sd.score, ymax=mean.score+sd.score), alpha=0.6) +
-  scale_color_brewer(palette="Set1") +
-  facet_grid(. ~ method) +
-  theme_bw(base_size = 16)
-  
-```
-
-original size?
-```{r, fig.width=14, fig.height=6}
-
-pred.labels.df %>%
-  group_by(method) %>%
-  drop_na() %>%
-  mutate(tot.cells=n()) %>%
-  ungroup() %>%
-  group_by(method, predicted.id) %>%
-  summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=median(score), sd.score=mad(score)) %>%
-  mutate(frac.label=tot.label/tot.cells) %>%
-  left_join(select(orig.frac.df, predicted.id, frac.label), by="predicted.id", suffix=c(".int",".original")) %>%
-  # bind_rows(orig.frac.df) %>%
-  ggplot(aes(frac.label.original, mean.score, color=method)) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=mean.score-sd.score, ymax=mean.score+sd.score), alpha=0.6) +
-  scale_color_brewer(palette="Set1") +
-  facet_grid(.~method) +
-  theme_bw(base_size = 16)
-```
-
-
-
-
-## Scoring per cell type
-```{r, fig.height=7, fig.width=6}
-
-dodge <- position_dodge(width=0.9)
-pred.labels.df %>%
-  group_by(method, predicted.id) %>%
-  summarise(score.mean=mean(score, na.rm=F), score.cv = sd(score)/mean(score), n=n()) %>%
-  # ggplot(aes(predicted.id, score.mean, fill=method)) +
-  # geom_col( position = dodge) +
-  ggplot(aes(predicted.id, method)) +
-  geom_point(aes(size=score.mean, color=score.mean)) +
-  scale_color_gradient(low="white", high = "blue") +
-  # geom_errorbar(aes(ymin=score.mean-score.cv, ymax=score.mean+score.cv), position=dodge, width=0.25)  +
+  geom_col(width=0.1) +
   coord_flip() +
-  theme_bw(base_size = 16)
-
-pred.labels.df %>%
-  ggplot(aes(predicted.id, score, color=method)) +
-  geom_boxplot() +
-  coord_flip() +
-  scale_color_brewer(palette="Set1")
-
+  # geom_line(aes(group=method)) +
+  facet_wrap(method~., nrow=1, ncol=4, scales="free_x") +
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  ylab("Fraction of cells") +
+  theme_bw(base_size = 16) +
+  ggsave(paste0(outdir, "cell_type_composition_bars.png"), width = 15, height = 5)
 ```
+
+<!-- Does the uncertainty depend on the size of the cluster? -->
+<!-- ```{r, fig.width=14, fig.height=5} -->
+
+<!-- pred.labels.df %>% -->
+<!--   group_by(method) %>% -->
+<!--   drop_na() %>% -->
+<!--   mutate(tot.cells=n()) %>% -->
+<!--   ungroup() %>% -->
+<!--   group_by(method, predicted.id) %>% -->
+<!--   summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=median(score), sd.score=mad(score)) %>% -->
+<!--   mutate(frac.label=tot.label/tot.cells) %>% -->
+<!--   # bind_rows(orig.frac.df) %>% -->
+<!--   ggplot(aes(frac.label, mean.score, color=method)) + -->
+<!--   geom_point(size=2) + -->
+<!--   geom_errorbar(aes(ymin=mean.score-sd.score, ymax=mean.score+sd.score), alpha=0.6) + -->
+<!--   scale_color_brewer(palette="Set1") + -->
+<!--   # geom_smooth(method = "loess", span=1.2) + -->
+<!--   facet_grid(. ~ method) + -->
+<!--   theme_bw(base_size = 16) + -->
+<!--   stat_cor(label.x = 0.2, label.y=0.25, color="black", size=5) + -->
+
+
+<!-- ``` -->
 
 ### Agreement with unsupervised clustering of ATAC data
 Calculate which fractions of NNs in bin based graph of ATAC cells have the same annotation
 ```{r}
-k = 50
+k = 30
 atac.seu <- FindNeighbors(atac.seu, assay = "ATAC", reduction = "SnapATAC", dims = 1:15, k.param = k)
 
 atac.nn.list <- getNNlist(atac.seu)
@@ -310,7 +302,10 @@ knn_score_df %>%
   scale_color_brewer(palette = "Set1") +
   geom_text(data=. %>% group_by(method) %>% summarise(AUC=max(AUC)), 
             x=0.05, hjust=0,
-            aes(label=glue("AUECDF = {round(AUC, 3)}"), y=c(0.90, 0.95, 1)))
+            aes(label=glue("AUC = {round(AUC, 3)}"), y=c(0.90, 0.95, 1))) +
+  theme_bw(base_size = 16) +
+  ylab("ECDF") +
+  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 4, width=6)
 ```
 
 ```{r, fig.height=8, fig.width=8}
@@ -322,55 +317,92 @@ full_join(pred.labels.df, knn_score_df) %>%
   scale_color_brewer(palette = "Set1") +
   coord_fixed()
 ```
-```{r, fig.height=8, fig.width=7, message=FALSE}
-plot_KNNecdf <- function(cluster){
-  full_join(pred.labels.df, knn_score_df) %>%
-    filter(predicted.id==cluster) %>%
-    ggplot(aes(KNN_score, color=method)) +
-    stat_ecdf(size=0.8) +
-    facet_wrap("predicted.id") +
-    xlim(0,1) + ylim(0,1) +
-    coord_fixed() +
-    scale_color_brewer(palette = "Set1") +
-    theme_bw(base_size = 16) +
-    theme(legend.position = "top")
-}
+<!-- # ```{r, fig.height=8, fig.width=7, message=FALSE} -->
+<!-- # plot_KNNecdf <- function(cluster){ -->
+<!-- #   full_join(pred.labels.df, knn_score_df) %>% -->
+<!-- #     filter(predicted.id==cluster) %>% -->
+<!-- #     ggplot(aes(KNN_score, color=method)) + -->
+<!-- #     stat_ecdf(size=0.8) + -->
+<!-- #     facet_wrap("predicted.id") + -->
+<!-- #     xlim(0,1) + ylim(0,1) + -->
+<!-- #     coord_fixed() + -->
+<!-- #     scale_color_brewer(palette = "Set1") + -->
+<!-- #     theme_bw(base_size = 16) + -->
+<!-- #     theme(legend.position = "top") -->
+<!-- # } -->
+<!-- #  -->
+<!-- # DimPlotCluster <- function(annotation_col, cluster, label){ -->
+<!-- #   highlight = which(atac.seu@meta.data[,annotation_col]==cluster) -->
+<!-- #   DimPlot(atac.seu, reduction = "umap.snap",cells.highlight = highlight, cols.highlight = "red", pt.size = 0.02, sizes.highlight = 0.1) + -->
+<!-- #     guides(color="none") + -->
+<!-- #     ggtitle(label = label) -->
+<!-- #   } -->
+<!-- #  -->
+<!-- # UMAPs_cluster <- function(cluster){ -->
+<!-- #   ggarrange(plotlist=imap(list(CCA="predicted.id_CCA", Conos="predicted.id_Conos", Liger="predicted.id_Liger"), ~ DimPlotCluster(.x, cluster, label = .y )), ncol=3, nrow=1) %>% annotate_figure(cluster) -->
+<!-- # } -->
+<!-- #  -->
+<!-- # map(cell.types, ~ ggarrange(plot_KNNecdf(.x), UMAPs_cluster(.x), nrow = 2, heights = c(1,0.8))) -->
+<!-- #  -->
+<!-- # ``` -->
 
-DimPlotCluster <- function(annotation_col, cluster, label){
-  highlight = which(atac.seu@meta.data[,annotation_col]==cluster)
-  DimPlot(atac.seu, reduction = "umap.snap",cells.highlight = highlight, cols.highlight = "red", pt.size = 0.02, sizes.highlight = 0.1) +
-    guides(color="none") +
-    ggtitle(label = label)
-  }
 
-UMAPs_cluster <- function(cluster){
-  ggarrange(plotlist=imap(list(CCA="predicted.id_CCA", Conos="predicted.id_Conos", Liger="predicted.id_Liger"), ~ DimPlotCluster(.x, cluster, label = .y )), ncol=3, nrow=1) %>% annotate_figure(cluster)
-}
-
-map(cell.types, ~ ggarrange(plot_KNNecdf(.x), UMAPs_cluster(.x), nrow = 2, heights = c(1,0.8)))
-
-```
-
-
-#### Which cells are inconsistently aligned?
-```{r, fig.width=14, fig.height=10}
-pred.labels.df %>%
-  select(method, predicted.id, cell) %>%
-  mutate(predicted.id=ifelse(is.na(predicted.id), "none", predicted.id)) %>%
-  ggplot(aes(x=method, stratum=predicted.id, alluvium=cell, fill=predicted.id, label=predicted.id)) +
-  geom_flow() +
-  geom_stratum(color=NA) +
-  geom_text(stat="stratum") +
-  theme_bw(base_size = 16)
-```
+<!-- #### Which cells are inconsistently aligned? -->
+<!-- ```{r, fig.width=14, fig.height=10} -->
+<!-- pred.labels.df %>% -->
+<!--   select(method, predicted.id, cell) %>% -->
+<!--   mutate(predicted.id=ifelse(is.na(predicted.id), "none", predicted.id)) %>% -->
+<!--   ggplot(aes(x=method, stratum=predicted.id, alluvium=cell, fill=predicted.id, label=predicted.id)) + -->
+<!--   geom_flow() + -->
+<!--   geom_stratum(color=NA) + -->
+<!--   geom_text(stat="stratum") + -->
+<!--   theme_bw(base_size = 16) -->
+<!-- ``` -->
 
 
 ## Closer look at Liger
 ```{r}
 library(liger)
 
-plotByDatasetAndCluster(model.liger$model, clusters=c(set_names(as.character(orig.RNA$annotation), colnames(orig.RNA)), set_names(as.character(pred.liger[,'predicted.id_Liger']), rownames(pred.liger))))
+plotByDatasetAndCluster(model.liger$model,   clusters=c(set_names(as.character(orig.RNA$annotation), colnames(orig.RNA)), set_names(as.character(pred.liger[,'predicted.id_Liger']), rownames(pred.liger))))
 ```
+
+## Accessibility of markers for cell type
+Markers taken from scanpy tutorial
+```{r, fig.height=10, fig.width=10, warning=FALSE, message=FALSE}
+# pbmc.markers <- c("CD79A", "MS4A1", "CD8A", "CD8B", "LYZ")
+pbmc.markers <- list(`T-cell`=c("CD3D"), `B-cell`=c("CD79A", "MS2A1"), `T-cell CD8+`=c("CD8A", "CD8B"), 
+                     `T-memory`=c("CAPG", "GABARAPL2", "CRIP1"),
+                     NK=c("GNLY", "NKG7"), Myeloid=c("CST3", "LYZ"), Monocytes=c("FCG3A", "C1QA", "PSAP"), 
+                     Dendritic=c("FCER1A", "LST1"), Platelets=c("PF4"))
+pbmc.markers.df <- imap(pbmc.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>% 
+  purrr::reduce(bind_rows)
+
+marker.access.df <- atac.seu@assays$ACTIVITY@data[intersect(unlist(pbmc.markers), rownames(atac.seu@assays$ACTIVITY)),] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>%
+  full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>%
+  full_join(pbmc.markers.df) %>%
+  pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>%
+  dplyr::mutate(method=str_remove(method,".+_")) %>%
+  filter(method %in% c("CCA", "Liger", "Conos")) %>%
+  group_by(method, predicted.id, gene) %>%
+  dplyr::mutate(frac.cells=sum(log.counts > 0)/n()) 
+
+  
+markers_pl <- ggplot(marker.access.df, aes( gene, predicted.id)) +
+  geom_point(aes(size=frac.cells, color=frac.cells)) +
+  facet_grid(method~cell.type.class, space="free", scales="free_x") +
+  scale_color_gradient(high="red", low="white") +
+  cowplot::theme_cowplot(font_size = 16) +
+  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
+        strip.text.x = element_text(angle=45)) 
+
+markers_pl +
+  ggsave(paste0(outdir, "PBMC_markers_accessibility.png"), height = 10, width = 12)
+```
+
+
 
 ## Compare feature selection strategy
 ```{r}
@@ -470,8 +502,31 @@ predict_score_cumedist <-
   guides(color="none") 
 
 ggarrange(predict_score_hist, predict_score_cumedist, common.legend = TRUE, widths = c(0.8, 1.2),
-          labels=c("A", "B")) 
-  ggsave(paste0(outdir, "prediction_score_distribution.pdf"), height = 6, width = 10)
+          labels=c("A", "B")) +
+  ggsave(paste0(outdir, "prediction_score_distribution_unionHVG.png"), height = 6, width = 10)
+```
+```{r, fig.width=10, fig.height=10}
+
+full_join(
+  pred.labels.df,
+  select(pred.labels.union.df, cell, predicted.id_union, score_union, method),
+  by=c("cell", "method")
+  ) %>%
+  group_by(method, predicted.id) %>%
+  mutate(n_pred=n()) %>%
+  ungroup() %>%
+  group_by(method, predicted.id, predicted.id_union) %>%
+  summarise(n=n(), n_pred=max(n_pred)) %>%
+  mutate(frac=n/n_pred) %>%
+  ggplot(aes(predicted.id, predicted.id_union)) +
+  geom_tile(aes(fill=frac)) +
+  facet_wrap(method~., nrow=3, ncol=1) +
+  coord_fixed() +
+  scale_fill_gradient(low="white", high="red") +
+  xlab("Feat. selection: union HVG") + ylab("Feat. selection: union HVG") +
+  theme_cowplot(font_size = 16) +
+  theme(axis.text.x = element_text(angle=45, hjust=1)) +
+  ggsave(paste0(outdir, "unionVSreference.png"), height = 12, width=10)
 ```
 ```{r}
 k = 50
@@ -508,9 +563,23 @@ knn_agreement[[1]] %>%
   stat_ecdf(size=1) +
   scale_color_brewer(palette = "Set1") +
   geom_text(data=. %>% group_by(method) %>% summarise(AUC=max(AUC)), 
-            x=0.05, hjust=0,
-            aes(label=glue("AUECDF = {round(AUC, 3)}"), y=c(0.90, 0.95, 1)))
+            x=0, hjust=0, size=5,
+            aes(label=glue("AUC = {round(AUC, 3)}"), y=c(0.90, 0.95, 1))) +
+  theme_bw(base_size = 16) +
+  ylab("ECDF") +
+  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 4, width=6)
 ```
+
+### Aggregate clusters
+```{r}
+clust = "NK cell"
+
+cluster.bmat <- orig.ATAC@bmat[which(pred.cca$predicted.id_CCA==clust),]
+clust.sums <- as.matrix(cluster.bmat) %>% colSums()
+
+plot(clust.sums[1:2000])
+```
+
 
 ### Thoughts
 - Conos scores a lot of cells with high confidence, but fails to assign cells to difficult clusters 

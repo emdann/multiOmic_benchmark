@@ -1,0 +1,105 @@
+---
+title: "Cell fraction benchamrk"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(clues)
+
+outdir <- "~/multiOmic_benchmark/report/output/20191111_fracQuery/"
+ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
+```
+
+Read benchmark output
+```{r}
+read_cellfrac_input <- function(dir,method){
+    input.files <- list.files(dir, full.names = T, pattern = method)
+  fracs <- str_remove_all(input.files, ".+frac|_.+") %>% as.numeric()
+  seed <- str_remove_all(input.files, ".+seed|_.+") %>% as.numeric()
+  cellfrac.out.df <- map2(input.files, fracs, ~ read_csv(.x) %>%
+    rename(cell=X1) %>%
+    mutate(frac=.y)
+    ) %>%
+    map2(seed, ~  mutate(.x, seed=.y)) %>%
+    purrr::reduce(bind_rows) %>%
+    mutate(method=method)
+  return(cellfrac.out.df)
+}
+
+dir <- "~/models/cell_frac/"
+
+cellfrac.cca <- read_cellfrac_input(dir, 'CCA') 
+cellfrac.liger <- read_cellfrac_input(dir, 'liger')
+cellfrac.conos <- read_cellfrac_input(dir, 'conos')
+
+cellfrac.df <- bind_rows(cellfrac.cca, cellfrac.conos, cellfrac.liger)
+```
+
+### Running time
+
+```{r}
+cellfrac.df %>%
+  select(method, frac, time) %>%
+  distinct() %>%
+  mutate(time=ifelse(time > 10, time/60, time)) %>%
+  ggplot(aes(frac, time, color=method)) +
+  geom_point(size=2, alpha=0.6) +
+  xlab("Fraction of incl. query cells") + ylab("Run time (min)") +
+  theme_bw(base_size = 16) +
+  scale_color_brewer(palette="Set1") +
+  ggsave(paste0(outdir, "runtime.png"), height = 4, width=6)
+
+unique(cellfrac.liger$time)
+```
+
+### Consistency of called labels
+
+```{r}
+ARI_to_1 <- function(wide_cellfrac, frac, ground){
+  test <- wide_cellfrac[,frac, drop=TRUE] 
+  subset.test <- test[!is.na(test)]
+  subset.ground <- ground[!is.na(test)]
+  dummy.test <- factor(subset.test, levels = union(unique(ground), unique(test))) %>% as.numeric()
+  dummy.ground <- factor(subset.ground, levels = union(unique(ground), unique(test))) %>% as.numeric()
+  ARI <- adjustedRand( dummy.ground, dummy.test, randMethod = "HA")
+  ARI
+}
+
+ARI <- function(cellfrac.df){
+  wide_cellfrac <- cellfrac.df %>% 
+    select(cell,predicted.id, frac) %>%
+    spread(frac, predicted.id)
+  
+  ground <- wide_cellfrac[,'1', drop=TRUE] %>% {ifelse(is.na(.), "unassigned", .)}
+  map_dbl(as.character(seq(0.1,1,by = 0.1)), ~ ARI_to_1(wide_cellfrac, .x, ground))
+}
+
+cellfrac.df %>%
+  mutate(split_col=str_c(method, seed)) %>%
+  split(.$split_col) %>%
+  map_dfc(~ ARI(.x)) %>%
+  mutate(frac=seq(0.1,1,by = 0.1)) %>%
+  pivot_longer(c("CCA42", "liger42", "conos42", "CCA43", "liger43", "conos43"), names_to = "method", values_to = "ARI") %>%
+  mutate(method=str_remove(method, "4.+")) %>%
+  ggplot(aes(frac, ARI, color=method)) +
+  geom_point(size=2, alpha=0.6) +
+  # geom_line(aes(group=method)) +
+  scale_color_brewer(palette="Set1") +
+  ylab("Adj. Rand Index") + xlab("Fraction of incl. query cells") +
+  theme_bw(base_size = 16) +
+  ggsave(paste0(outdir, "ARI.png"), height = 4, width=6)
+
+```
+
+### Scores
+```{r, fig.height=10, fig.width=10}
+cellfrac.df %>%
+  ggplot(aes(score, color=as.factor(frac))) + 
+  # geom_density() +
+  stat_ecdf() +
+  scale_color_viridis_d() +
+  facet_grid(method~.) +
+  theme_bw(base_size = 16)
+```
+
