@@ -5,6 +5,15 @@ bibliography: bibliography.bib
 link-citations: true
 ---
 
+# Introduction 
+
+Following extraordinary technological advances and discoveries with single-cell transcriptomics, new single-cell sequencing strategies are emerging to profile other molecular layers in thousands of cells, from chromatin accessibility, to expression of surface proteins, to methylation. These methods have already been employed to discover patterns of epigenetic heterogeneity in a variety of tissues [ref]. However, at present these methods produce noisier data and at lower throughput.
+Integration of such datasets with more detailed and comprehensively annotated scRNA-seq datasets can allow denoising of biological signals, guide cell type annotation and disentangle causal relationships between biological layers of information and how these co-determine complex phenotypes. 
+
+Methods for simoultaneous profiling of biological layers are starting to emerge [refs], but these are mostly low-throughput and labor intensive.
+In most cases, molecular profiles will be measured in parallel from cells sampled from the same tissue/cellular population.
+Consequently, aligning different datasets requires an at least partial correspondence between profiled features across omics. This is true when integrating different scRNA-seq datasets or scRNA-seq data with spatial transcriptomics. For omic types that measure molecular features that are different than genes, data is usually preprocessed to generate a matrix of gene level features e.g. measuring gene activity from ATAC accessibility peaks [https://www.ncbi.nlm.nih.gov/pubmed/30078726]. Different integration methods use different inference algorithms for the latent space projection (e.g. canonical correlation analysis, non-negative matrix factorization, variational autoencoders), but all allow the mapping of a gene expression (or other molecular feature) vector x on a latent space vector z, via a vector of feature loadings w. Inspection of loadings can distinguish features that allow alignment across datasets and potentially indicate cell and omic specific contributions to the overall data variation.
+
 # Results
 
 ## Label transfer comparison on PBMC dataset
@@ -49,6 +58,12 @@ knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/PBMC_markers_acce
 
 
 ## Label transfer comparison on Thymus dataset
+
+### Exploratory data analysis on scATAC-seq
+
+
+
+### Label transfer
 
 ```{r label-transfer-thymus, fig.show='hold', fig.cap="UMAP of predicted labels for thymus dataset", echo=FALSE}
 knitr::include_graphics("output/20191106_labelTransferEDA_F74/umap_labels.png", auto_pdf = TRUE)
@@ -136,15 +151,15 @@ We performed dimensionality reduction on the bin x cell accessibility matrix usi
 
 ## Tested integration methods 
 
-| Method       | Reference | Included in benchmark | Reason for Excluding |
-| -------------|-----------|:---------------------:|:--------------------:|
-| Seurat CCA   | @stuartComprehensiveIntegrationSingleCell2019a | Yes | / |
-| LIGER | @welchSingleCellMultiomicIntegration2019a | Yes | / |
-| Conos | @barkasJointAnalysisHeterogeneous2019 | Yes | / |
-| scGen | @lotfollahiScGenPredictsSinglecell2019 | No | Requires cell type annotation in both datasets |
-| totalVI | @gayosoJointModelRNA2019 | No | Requires  multi-omic data from the same single-cells |
-| BBKNN | @polanskiBBKNNFastBatch | No | Bad alignment during testing |
-| Cusanovich2018 | @cusanovichSingleCellAtlasVivo2018a | No | Code unavailable |
+| Method       | Reference | Description | Included in benchmark | Reason for Excluding |
+| -------------|---------------|:---------------------------------|:-----:|:--------------------:|
+| Seurat CCA   | @stuartComprehensiveIntegrationSingleCell2019a | Pairing of cells based on Canonical Correlation analysis | Yes | / |
+| LIGER | @welchSingleCellMultiomicIntegration2019a | Joint Non-Negative Matrix factorization | Yes | / |
+| Conos | @barkasJointAnalysisHeterogeneous2019 | Joint neighboorhood graph construction | Yes | / |
+| scGen | @lotfollahiScGenPredictsSinglecell2019 | Joint embedding with Variational Autoencoder | No | Requires cell type annotation in both datasets |
+| totalVI | @gayosoJointModelRNA2019 | generative model + variational inference | No | Requires  multi-omic data from the same single-cells |
+| BBKNN | @polanskiBBKNNFastBatch | Joint neighboorhood graph construction | No | Bad alignment during testing |
+| Cusanovich2018 | @cusanovichSingleCellAtlasVivo2018a | Joint neighboorhood graph construction | No | Code unavailable |
 
 
 ### Label transfer {#transfer-label}

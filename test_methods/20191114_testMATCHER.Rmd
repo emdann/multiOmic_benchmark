@@ -1,0 +1,85 @@
+---
+title: "Explore MATCHER"
+output: html_notebook
+---
+
+1. Make dataset to run MATCHER
+```{r}
+## 1. Load dataset
+sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191113.RDS")
+orig.ATAC <- readRDS("~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+
+## Subset datasets to T-cell clusters
+t.cell.clusters.ATAC <- 1:6
+t.cell.clusters.RNA <- c("DN", "DP (Q)", "DP (P)", "SP", "NK")
+
+rna.data <- sce.list$RNA[, sce.list$RNA$annotation %in% t.cell.clusters.RNA]
+atac.data <- orig.ATAC[which(orig.ATAC@cluster %in% t.cell.clusters.ATAC)]
+
+## Make dimensionality reductions to use MATCHER
+rna.data <- scater::runPCA(rna.data, ncomponents=30)
+rna.redDim <- reducedDim(rna.data)
+atac.redDim <- atac.data@smat@dmat[,1:30]
+
+## Save tables as csv for MATCHER
+write.csv(rna.redDim, file = "~/my_data/F74_RNA_redDim.csv")
+write.csv(atac.redDim, file = "~/my_data/F74_ATAC_redDim.csv")
+
+## Run integration / matching 
+```
+
+2. Run MATCHER
+
+3. Explore results
+
+```{r}
+sce.list
+
+rna.data <- sce.list$RNA[, sce.list$RNA$annotation %in% t.cell.clusters.RNA]
+atac.data <- orig.ATAC[which(orig.ATAC@cluster %in% t.cell.clusters.ATAC)]
+
+rna.mt <- read.csv("~/models/test_RNA_pseudotime.csv", header = F)
+atac.mt <- read.csv("~/models/test_ATAC_pseudotime.csv", header = F)
+anno.rna <- as.tibble(colData(rna.data) )
+```
+```{r}
+cbind(rna.mt, anno.rna) %>%
+  ggplot(aes(V1, fill=annotation)) +
+  geom_histogram(binwidth = 0.05) 
+  facet_grid(annotation~., scales='free_y')
+
+hist(atac.mt$V1, breaks = 100)
+```
+```{r}
+cbind(atac.mt) %>%
+  ggplot(aes(V1)) +
+  geom_histogram(binwidth = 0.05) 
+cbind(rna.mt) %>%
+  ggplot(aes(V1)) +
+  geom_histogram(binwidth = 0.05) 
+
+```
+
+```{r}
+
+atac.seu <- AddMetaData(atac.seu, metadata = data.frame(atac.mt$V1, row.names = atac.data@barcode), col.name = "MATCHER.pseudotime")
+
+FeaturePlot(atac.seu,reduction = "umap.snap", features = "MATCHER.pseudotime")
+```
+```{r}
+orig.RNA.seu <- AddMetaData(orig.RNA.seu, metadata = data.frame(rna.mt$V1, row.names = colnames(rna.data)), col.name = "MATCHER.pseudotime")
+FeaturePlot(orig.RNA.seu, features = "MATCHER.pseudotime")
+```
+```{r}
+tcells.seu <- as.Seurat(rna.data)
+tcells.seu <- FindVariableFeatures(tcells.seu, mean.cutoff = c(0.0125,3), dispersion.cutoff = c(0.5, 1234567890))
+tcells.seu <- ScaleData(tcells.seu)
+tcells.seu <- RunPCA(tcells.seu)
+tcells.seu <- RunUMAP(tcells.seu, dims = 1:40)
+
+DimPlot(tcells.seu, group.by = "annotation")
+```
+```{r, fig.width=8, fig.height=8}
+FeaturePlot(tcells.seu, features = c("HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "CD5", "CD27", "CD4", "CD8"))
+```
+
