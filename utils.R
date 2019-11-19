@@ -40,3 +40,13 @@ brewer_palette_4_values <- function(vec, palette, seed=42){
   # names(pal) <- sample(vec)
   return(pal)
 }
+
+DimPlotCluster <- function(atac.seu, annotation_col, cluster, label=NULL){
+  if (is.null(label)) {
+    label <- cluster
+  }
+  highlight = which(atac.seu@meta.data[,annotation_col]==cluster)
+  DimPlot(atac.seu, reduction = "umap.snap",cells.highlight = highlight, cols.highlight = "red", pt.size = 0.02, sizes.highlight = 0.1) +
+    guides(color="none") +
+    ggtitle(label = label)
+}
