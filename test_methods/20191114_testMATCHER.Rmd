@@ -6,19 +6,31 @@ output: html_notebook
 1. Make dataset to run MATCHER
 ```{r}
 ## 1. Load dataset
-sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191113.RDS")
+sce.list <- readRDS("~/my_data/integrated_thymus/F74_SCElist_20191119.RDS")
 orig.ATAC <- readRDS("~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
 
 ## Subset datasets to T-cell clusters
-t.cell.clusters.ATAC <- 1:6
-t.cell.clusters.RNA <- c("DN", "DP (Q)", "DP (P)", "SP", "NK")
+t.cell.clusters.ATAC <- 1:5
+t.cell.clusters.RNA <- c("DN", "DP (Q)", "DP (P)", "SP (1)", "SP (2)")
 
 rna.data <- sce.list$RNA[, sce.list$RNA$annotation %in% t.cell.clusters.RNA]
 atac.data <- orig.ATAC[which(orig.ATAC@cluster %in% t.cell.clusters.ATAC)]
 
+integrate_features <- scan("~/intFeatures_union_hvg_2000_F74_SCElist_20191119.txt", what='')
+
+## Remove cell cycle features
+cell_cycle_genes <- read.table("~/annotations/cell_cycle_genes.tsv")$V1
+int_features <- setdiff(integrate_features, cell_cycle_genes) 
+
 ## Make dimensionality reductions to use MATCHER
-rna.data <- scater::runPCA(rna.data, ncomponents=30)
-rna.redDim <- reducedDim(rna.data)
+rna.seu <- as.Seurat(rna.data)
+rna.seu <- FindVariableFeatures(rna.seu)
+VariableFeatures(rna.seu) <- setdiff(VariableFeatures(rna.seu), cell_cycle_genes)
+rna.seu <- ScaleData(rna.seu)
+rna.seu <- RunPCA(rna.seu, npcs = 30)
+rna.redDim <- rna.seu@reductions$pca@cell.embeddings
+# rna.data <- scater::runPCA(rna.data, ncomponents=30, feature_set=int_features)
+# rna.redDim <- reducedDim(rna.data)
 atac.redDim <- atac.data@smat@dmat[,1:30]
 
 ## Save tables as csv for MATCHER
@@ -33,30 +45,27 @@ write.csv(atac.redDim, file = "~/my_data/F74_ATAC_redDim.csv")
 3. Explore results
 
 ```{r}
-sce.list
-
-rna.data <- sce.list$RNA[, sce.list$RNA$annotation %in% t.cell.clusters.RNA]
-atac.data <- orig.ATAC[which(orig.ATAC@cluster %in% t.cell.clusters.ATAC)]
-
-rna.mt <- read.csv("~/models/test_RNA_pseudotime.csv", header = F)
-atac.mt <- read.csv("~/models/test_ATAC_pseudotime.csv", header = F)
+rna.mt <- read.csv("~/models/test_RNA_master_time.csv", header = F)
+atac.mt <- read.csv("~/models/test_ATAC_master_time.csv", header = F)
 anno.rna <- as.tibble(colData(rna.data) )
 ```
 ```{r}
 cbind(rna.mt, anno.rna) %>%
   ggplot(aes(V1, fill=annotation)) +
-  geom_histogram(binwidth = 0.05) 
+  geom_histogram(binwidth = 0.01)  
   facet_grid(annotation~., scales='free_y')
 
-hist(atac.mt$V1, breaks = 100)
-```
-```{r}
 cbind(atac.mt) %>%
   ggplot(aes(V1)) +
-  geom_histogram(binwidth = 0.05) 
-cbind(rna.mt) %>%
-  ggplot(aes(V1)) +
-  geom_histogram(binwidth = 0.05) 
+  geom_histogram(binwidth = 0.01)  
+
+```
+```{r}
+cbind(rna.mt, anno.rna) %>%
+  mutate(matcher_pseudotime=dense_rank(V1)) %>%
+  ggplot(aes(matcher_pseudotime, annotation)) +
+  geom_tile(aes(fill=annotation)) +
+  cowplot::theme_cowplot()
 
 ```
 
@@ -71,15 +80,37 @@ orig.RNA.seu <- AddMetaData(orig.RNA.seu, metadata = data.frame(rna.mt$V1, row.n
 FeaturePlot(orig.RNA.seu, features = "MATCHER.pseudotime")
 ```
 ```{r}
-tcells.seu <- as.Seurat(rna.data)
-tcells.seu <- FindVariableFeatures(tcells.seu, mean.cutoff = c(0.0125,3), dispersion.cutoff = c(0.5, 1234567890))
-tcells.seu <- ScaleData(tcells.seu)
-tcells.seu <- RunPCA(tcells.seu)
-tcells.seu <- RunUMAP(tcells.seu, dims = 1:40)
+tcells.seu <- rna.seu
+# tcells.seu <- FindVariableFeatures(tcells.seu, mean.cutoff = c(0.0125,3), dispersion.cutoff = c(0.5, 1234567890))
+# tcells.seu <- ScaleData(tcells.seu)
+# tcells.seu <- RunPCA(tcells.seu)
+tcells.seu <- RunUMAP(tcells.seu, dims = 1:30)
 
 DimPlot(tcells.seu, group.by = "annotation")
 ```
 ```{r, fig.width=8, fig.height=8}
-FeaturePlot(tcells.seu, features = c("HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "CD5", "CD27", "CD4", "CD8"))
+FeaturePlot(tcells.seu, features = c("HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "CD5", "CD27", "CD4", "CD8A"))
+```
+
+Compare w diffusion pseudotime calculated in scanpy
+```{r}
+scanpy.dpt <- read.csv("~/models/scanpy_RNA_pseudotime.csv", header = T) 
+scanpy.dpt %>%
+  mutate(dpt_pseudotime=dense_rank(dpt_pseudotime)) %>%
+  ggplot(aes(dpt_pseudotime, anno_v3)) +
+  geom_tile(aes(fill=anno_v3)) +
+  cowplot::theme_cowplot()
+```
+
+```{r}
+scanpy.dpt %>%
+  ggplot(aes(dpt_pseudotime, fill=anno_v3)) +
+  geom_histogram(binwidth = 0.01)
+orig.RNA.seu@meta.data %>%
+  rownames_to_column("X") %>%
+  mutate(X= str_c("F74_1_", str_remove(X, "_1"))) %>%
+  left_join(scanpy.dpt) %>%
+  ggplot(aes(dpt_pseudotime, MATCHER.pseudotime)) +
+  geom_point(size=0.5)
 ```
 

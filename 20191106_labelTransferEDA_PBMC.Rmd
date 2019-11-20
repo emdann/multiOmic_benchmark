@@ -299,25 +299,29 @@ knn_score_null_df <-
 
 bind_rows(knn_score_df, knn_score_null_df) %>%
   ggplot(aes(KNN_score, color=method)) +
-  stat_ecdf(aes( group=data)) +
+  stat_ecdf( aes(alpha=data), size=1) +
+  # stat_ecdf(data=. %>% filter(data=="true"), size=1) +
   facet_grid(method~.) +
+  scale_alpha_discrete( range=c(0.5,1), name="") +
   scale_color_brewer(palette = "Set1") +
   geom_text(data=. %>% distinct(method, D, p.val), 
-            x=0.05, hjust=0,
-            aes(label=glue("D = {round(D, 3)}, p.value: {p.val}"), y=c(0.90, 0.95, 1))) +
+            x=1, y=0.05, hjust=1,
+            aes(label=glue("KNN score = {round(D, 3)}, p.value: {p.val}"), y=c(0.90, 0.95, 1))) +
   theme_bw(base_size = 16) +
-  ylab("ECDF") 
-  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 4, width=6)
+  ylab("ECDF") + xlab("Fraction of KNNs with shared label") +
+  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 6, width=7)
 ```
 
-```{r, fig.height=8, fig.width=8}
+```{r, fig.height=5, fig.width=13}
+compareCluster <- function(clust){
+  plotlist <- map(list("CCA", "Liger", "Conos"), 
+                  ~ DimPlotCluster(atac.seu, annotation_col = glue('predicted.id_{.x}'), cluster=clust, label=glue('{clust} - {.x}'))
+                  )
+  ggarrange(plotlist = plotlist, nrow=1)
+  }
 
-full_join(pred.labels.df, knn_score_df) %>%
-  ggplot(aes(KNN_score, color=method)) +
-  stat_ecdf() +
-  facet_wrap("predicted.id") +
-  scale_color_brewer(palette = "Set1") +
-  coord_fixed()
+compareCluster("CD14+ Monocytes")
+compareCluster("CD4 Memory")
 ```
 
 <!-- ciaone -->
