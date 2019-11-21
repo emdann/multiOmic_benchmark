@@ -63,8 +63,13 @@ atac.seu <- snapToSeurat(
 atac.seu <- RenameCells(atac.seu, new.names = orig.ATAC@metaData$barcode)
 
 ## Add cell type predictions
-getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score"){
+getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score", filter_score=0){
   pred.df <- seu.int$ATAC@meta.data[,c(id.col, score.col), drop=F] 
+  colnames(pred.df) <- c('predicted.id', "score")
+  pred.df <- pred.df %>%
+    rownames_to_column("cell") %>%
+    mutate(predicted.id = ifelse(score < filter_score, NA, as.character(predicted.id))) %>%
+    column_to_rownames("cell")
   rownames(pred.df) <- str_remove(rownames(pred.df), "^ATAC_")
   colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
   pred.df
@@ -88,7 +93,7 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
 ```{r, fig.height=8, fig.width=18}
 ## make cell type palette
 cell.types <- levels(seu.cca$RNA$annotation)
-cell.type.pal <- setNames(gg_color_hue(length(cell.types)), cell.types)
+cell.type.pal <- brewer_palette_4_values(cell.types, palette = "Paired") %>% setNames(cell.types)
 
 ## Embed RNA
 orig.RNA.seu <- as.Seurat(orig.RNA)
@@ -111,6 +116,36 @@ ggpubr::ggarrange(
   ) +
   ggsave(paste0(outdir, "umap_labels.png"), width=18, height = 8)
 
+
+```
+
+Filter low confidence calls 
+```{r, fig.height=8, fig.width=18}
+pred.cca.filtered <- getPredictedLabels(seu.cca, "CCA", score.col = "prediction.score.max", filter_score = 0.5)
+pred.liger.filtered <- getPredictedLabels(seu.liger, "Liger", filter_score = 0.5)
+pred.conos.filtered <- getPredictedLabels(seu.conos, "Conos", filter_score = 0.5)
+
+if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) == rownames(pred.liger))) {
+  atac.seu <- AddMetaData(atac.seu, metadata = cbind(pred.cca.filtered, pred.liger.filtered, pred.conos.filtered))
+} else {
+  stop("Non corresponding cell names")
+}
+
+ggpubr::ggarrange(
+  plotlist = list(
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") +
+      ggtitle("CCA"),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Liger"),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Conos"),
+    DimPlot(orig.RNA.seu, reduction = "umap", group.by = "annotation", cols=cell.type.pal) + ggtitle("RNA") +
+      scale_color_manual(values = cell.type.pal, na.value="grey80")
+  ),
+  common.legend = TRUE, ncol=4, nrow=1
+) +
+  ggsave(paste0(outdir, "umap_labels_filtered.png"), width=16, height = 6)
 
 ```
 
@@ -176,9 +211,9 @@ ggarrange(predict_score_hist, predict_score_cumedist, common.legend = TRUE, widt
 ```{r, fig.width=16, fig.height=8}
 ggpubr::ggarrange(
   plotlist = list(
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  , coord.fixed = TRUE) + ggtitle("CCA"),
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger", coord.fixed = TRUE) + ggtitle("Liger"),
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos", coord.fixed = TRUE) + ggtitle("Conos")
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  , coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("CCA"),
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Liger"),
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Conos")
   ),
   common.legend = TRUE, ncol=3, nrow=1
 ) +
@@ -273,7 +308,7 @@ pred.labels.df %>%
 Calculate which fractions of NNs in bin based graph of ATAC cells have the same annotation
 ```{r}
 k = 30
-atac.seu <- FindNeighbors(atac.seu, assay = "ATAC", reduction = "SnapATAC", dims = 1:15, k.param = k)
+atac.seu <- FindNeighbors(atac.seu, assay = "ATAC", reduction = "SnapATAC", dims = 1:20, k.param = k)
 
 atac.nn.list <- getNNlist(atac.seu)
 
@@ -320,8 +355,9 @@ compareCluster <- function(clust){
   ggarrange(plotlist = plotlist, nrow=1)
   }
 
-compareCluster("CD14+ Monocytes")
-compareCluster("CD4 Memory")
+compareCluster("CD14+ Monocytes") +
+  ggsave(paste0(outdir, 'CD14Monocytes_cluster.png'), width=14, height = 4)
+compareCluster("CD8 Naive")
 ```
 
 <!-- ciaone -->

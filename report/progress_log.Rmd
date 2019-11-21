@@ -66,35 +66,28 @@ knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/PBMC_markers_acce
 ### Label transfer
 
 ```{r label-transfer-thymus, fig.show='hold', fig.cap="UMAP of predicted labels for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191106_labelTransferEDA_F74/umap_labels.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/umap_labels_filtered.png", auto_pdf = TRUE)
 ```
 
 
 
 
 ```{r pred-score-thymus, fig.show='hold', fig.cap="Prediction scores for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191106_labelTransferEDA_F74/prediction_score_distribution.png", auto_pdf = TRUE)
-knitr::include_graphics("output/20191106_labelTransferEDA_F74/prediction_score_umaps.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/prediction_score_distribution.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/prediction_score_umaps.png", auto_pdf = TRUE)
 ```
 
 
 Cell type composition
 
 ```{r cell-comp-thymus, fig.show='hold', fig.cap="Predicted cell type compositions for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191106_labelTransferEDA_F74/cell_type_composition_bars.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/cell_type_composition_bars.png", auto_pdf = TRUE)
 ```
 
 CCA is also better at maintaining the nearest neighboorhood structure from the ATAC alone in its label assignments
 ```{r knn-score-thymus, fig.show='hold', fig.cap="KNN agreement score for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191106_labelTransferEDA_F74/KNN_score_ecdf_referenceHVG.png", auto_pdf = TRUE)
+knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/ KNN_score_ecdf_unionHVG.png", auto_pdf = TRUE)
 ```
-
-This is irrespective of the feature selection method of choice
-```{r unionvsref-thymus, fig.show='hold', fig.cap="KNN agreement score for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191106_labelTransferEDA_F74/unionVSreference_KNN.png", auto_pdf = TRUE)
-```
-
-
 
 ```{r markers-thymus, fig.show='hold', fig.cap="Accessibility of known thymic markers in predicted cell types", echo=FALSE}
 knitr::include_graphics("output/20191106_labelTransferEDA_F74/Thymus_markers_accessibility.png", auto_pdf = TRUE)

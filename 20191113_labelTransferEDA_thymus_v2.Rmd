@@ -97,9 +97,10 @@ ggpubr::ggarrange(
   plotlist = list(
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("CCA"),
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Liger"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos")
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos"),
+     DimPlot(orig.RNA.seu, reduction = "umap", group.by = "annotation", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("RNA")
   ),
-  common.legend = TRUE, ncol=3, nrow=1
+  common.legend = TRUE, ncol=4, nrow=1
 ) +
   ggsave(paste0(outdir, "umap_labels.png"), width=16, height = 8)
 
@@ -120,17 +121,19 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
 
 ggpubr::ggarrange(
   plotlist = list(
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA", cols=cell.type.pal, repel=TRUE) + 
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA", cols=cell.type.pal) + 
       scale_color_manual(values = cell.type.pal, na.value="grey80") +
       ggtitle("CCA"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, repel=TRUE) + 
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal) + 
       scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Liger"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, repel=TRUE) + 
-      scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Conos")
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Conos"),
+    DimPlot(orig.RNA.seu, reduction = "umap", group.by = "annotation", cols=cell.type.pal) + ggtitle("RNA") +
+      scale_color_manual(values = cell.type.pal, na.value="grey80")
   ),
-  common.legend = TRUE, ncol=3, nrow=1
+  common.legend = TRUE, ncol=4, nrow=1
 ) +
-  ggsave(paste0(outdir, "umap_labels_filtered.png"), width=16, height = 8)
+  ggsave(paste0(outdir, "umap_labels_filtered.png"), width=16, height = 6)
 
 ```
 
@@ -229,13 +232,31 @@ ggpubr::ggarrange(predict_score_hist, predict_score_cumedist, common.legend = TR
 ```{r, fig.width=16, fig.height=8}
 ggpubr::ggarrange(
   plotlist = list(
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  , coord.fixed = TRUE) + ggtitle("CCA"),
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger", coord.fixed = TRUE) + ggtitle("Liger"),
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos", coord.fixed = TRUE) + ggtitle("Conos")
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  , coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("CCA"),
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Liger"),
+    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Conos")
   ),
   common.legend = TRUE, ncol=3, nrow=1
 ) +
   ggsave(paste0(outdir, "prediction_score_umaps.png"), height = 7, width=14)
+```
+```{r, fig.width=16, fig.height=5}
+pred.labels.df %>%
+  group_by(method, predicted.id) %>%
+  mutate(median.score=median(score), size=n()) %>%
+  ungroup() %>%
+  group_by(method) %>%
+  mutate(rank = dense_rank(median.score)) %>%
+  ungroup() %>%
+  # ggplot(aes(size, median.score)) + geom_point(aes(color=method)) +
+  ggplot(aes(as.factor(rank), score, fill=predicted.id)) +
+  # geom_violin() +
+  geom_boxplot(varwidth = F) +
+  # ggbeeswarm::geom_quasirandom(alpha=0.3) +
+  # geom_point(aes(y=median.score)) +
+  # stat_ecdf() +
+  facet_wrap(method~., ncol=3, scales="free_x") +
+  scale_fill_manual(values=cell.type.pal)
 ```
 
 
@@ -338,7 +359,7 @@ bind_rows(knn_score_df, knn_score_null_df) %>%
   facet_grid(method~.) +
   scale_alpha_discrete( range=c(0.5,1), name="") +
   scale_color_brewer(palette = "Set1") +
-  geom_text(data=. %>% distinct(method, D, p.val), 
+  geom_text(data= . %>% distinct(method, D, p.val), 
             x=1, y=0.05, hjust=1,
             aes(label=glue("KNN score = {round(D, 3)}, p.value: {p.val}"), y=c(0.90, 0.95, 1))) +
   theme_bw(base_size = 16) +
@@ -346,10 +367,14 @@ bind_rows(knn_score_df, knn_score_null_df) %>%
   ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 6, width=7)
 ```
 ```{r}
-clust = "DC"
-pred.labels <- setNames(pred.cca.filtered$predicted.id_CCA, rownames(pred.cca.filtered)) 
-pred.labels[which(pred.labels == clust)]
-KNN_score(atac.nn.list, )
+cluster.prob <- (clust.size/length(pred.labels))
+pred.labels.prob <- cluster.prob[pred.labels[which(!is.na(pred.labels))]]
+(cluster.prob*k)
+cluster.prob^k
+length(pred.labels)
+plot(knn.scores, knn.scores /as.numeric(pred.labels.prob))
+
+hist( knn.scores - as.numeric(pred.labels.prob)*k)
 ```
 
 
@@ -465,8 +490,9 @@ tcells.markers.df %>%
   mutate(predicted.id=factor(predicted.id, levels=ordered.tcells)) %>%
   ggplot(aes( predicted.id, gene)) +
   facet_grid(cell.type.class~method, scales = "free_y", space="free") +
-  geom_point(aes(size=frac.cells, color=mean.acc)) +
-  scale_color_gradient(high="darkblue", low="white") +
+  geom_point(aes(size=frac.cells, color=frac.cells)) +
+  # scale_color_gradient(high="darkblue", low="white") +
+  scale_color_viridis_c() +
   # scale_color_gradient2(midpoint = 0.5) +
   theme_bw(base_size = 16) +
   theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
