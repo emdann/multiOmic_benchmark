@@ -14,11 +14,14 @@ library(purrr)
 KNN_score <- function(nn.list, pred.labels ){
                       # pred.id.col = "predicted.id"
                       # ){
-  k <- unique(map_dbl(atac.nn.list, length))
+  k <- unique(map_dbl(nn.list, length))
+  nn.list <- nn.list[which(!is.na(pred.labels))]
+  pred.labels <- pred.labels[which(!is.na(pred.labels))]
+  
   if (length(k) > 1) {
     stop("KNN list is malformed. Different k for different cells.")    
   }
-  knn.score <- imap_dbl(nn.list, ~ sum(pred.labels[.x] == pred.labels[.y])/k)         
+  knn.score <- imap_dbl(nn.list, ~ sum(pred.labels[.x] == pred.labels[.y], na.rm = TRUE)/k)         
   # data.frame(knn.score) %>% rownames_to_column("cell")
   knn.score
   }

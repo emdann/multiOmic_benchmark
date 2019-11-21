@@ -58,11 +58,12 @@ FeaturePlotCluster <- function(atac.seu, annotation_col, feature_col, cluster, l
     label <- cluster
   }
   atac.seu.copy <- atac.seu
+  highlight = which(atac.seu.copy@meta.data[,annotation_col]==cluster)
   grey_cells = which(atac.seu.copy@meta.data[,annotation_col]!=cluster)
   atac.seu.copy@meta.data[grey_cells,feature_col] <- NA
-  FeaturePlot(atac.seu.copy, reduction = reduct, feature=feature_col, order=TRUE) +
-    scale_color_viridis_c(na.value = "grey50") +
+  FeaturePlot(atac.seu.copy, reduction = reduct, feature=feature_col, order=FALSE, pt.size = 0.05, cells=highlight) +
+    scale_color_viridis_c(na.value = "grey80") +
     # guides(color="none") +
-    ggtitle(label = label) +
-    theme(axis.ticks = element_blank(), axis.text = element_blank())
+    ggtitle(label = label) 
+    # theme(axis.ticks = element_blank(), axis.text = element_blank())
 }

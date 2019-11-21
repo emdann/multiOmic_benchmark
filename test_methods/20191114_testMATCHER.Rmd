@@ -114,3 +114,34 @@ orig.RNA.seu@meta.data %>%
   geom_point(size=0.5)
 ```
 
+### Pseudotime on ATAC only (w Monocle)
+Following [Cicero vignette](https://cole-trapnell-lab.github.io/cicero-release/docs_m3/#single-cell-accessibility-trajectories)
+
+```{r}
+# temp <- textConnection(readLines(gzcon(url("http://staff.washington.edu/hpliner/data/kidney_data.txt.gz"))))
+# cicero_data <- read.table(temp)
+long.pmat <- as.matrix(atac.data@pmat) %>% reshape2::melt()
+
+
+input_cds <- cicero::make_atac_cds(cicero_data)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
