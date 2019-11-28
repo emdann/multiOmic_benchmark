@@ -1,0 +1,226 @@
+---
+title: "SnapATAC output EDA"
+output: html_notebook
+---
+
+
+```{r}
+library(SnapATAC)
+library(Seurat)
+```
+
+
+Save files
+```{r}
+saveRDS(x.sp, file = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+x.sp <- readRDS( "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+```
+
+
+Repeat visualization on gmat
+```{r}
+## Make suerat object
+f74.seu <- snapToSeurat(
+    obj=x.sp, 
+    eigs.dims=1:20, 
+    norm=TRUE,
+    scale=TRUE
+    )
+
+## Save UMAP based on SnapATAC processing
+f74.seu <- RunUMAP(f74.seu, reduction = "SnapATAC", dims=signif.dims, reduction.name = "umap.snap")
+
+
+f74.seu <- FindVariableFeatures(f74.seu)
+f74.seu <- RunPCA(f74.seu, dims=1:50)
+f74.seu <- RunUMAP(f74.seu, reduction = "pca", dims=1:50, verbose=FALSE) 
+
+Seurat::Idents(f74.seu) <- x.sp@cluster
+
+ggpubr::ggarrange(
+  DimPlot(f74.seu, reduction = "umap") + ggtitle("gmat"),
+  DimPlot(f74.seu, reduction = "umap.snap") + ggtitle("bmat - snap") 
+  )
+
+```
+
+
+```{r}
+plotly::ggplotly(DimPlot(f74.seu, reduction = "umap", group.by = NULL) + ggtitle("gmat"))
+```
+
+```{r, fig.height=15, fig.width=15}
+FeaturePlot(f74.seu, features = c('PTPRC','CD4','CD8A','CD8B','CD79A','FOXN1','EPCAM','PDGFRA','GNG4', 'FOXP3','RAG1','RAG2','NKG7','CCR7'), reduction = "umap.snap")
+```
+
+```{r, fig.height=15, fig.width=15}
+DimHeatmap(f74.seu, dims = 1:6, balanced = TRUE,ncol = 1)
+```
+
+### Differential analysis 
+<!-- Snap ATAC way -->
+<!-- ```{r} -->
+<!-- cluster = 1 -->
+<!-- DARs= findDAR( -->
+<!--     obj=x.sp, -->
+<!--     input.mat="gmat", -->
+<!--     cluster.pos=cluster, -->
+<!--     # cluster.neg = 5, -->
+<!--     cluster.neg.method="random", -->
+<!--     test.method="exactTest", -->
+<!--     bcv=0.4, #0.4 for human, 0.1 for mouse -->
+<!--     seed.use=42 -->
+<!--   ); -->
+
+
+<!-- gmat.cl <- x.sp@gmat[which(x.sp@cluster==cluster),] -->
+<!-- gmat.neg <- x.sp@gmat[which(x.sp@cluster!=cluster),] -->
+
+<!-- hist(as.matrix(gmat.cl), breaks=50) -->
+
+
+<!-- # DARs %>% -->
+<!--   # mutate(gene=colnames(x.sp@gmat)) %>% -->
+<!--   # arrange() %>% -->
+<!--   # filter(PValue < 0.05) -->
+
+<!-- hist(DARs$PValue, breaks = 20) -->
+
+<!-- DARs$FDR = p.adjust(DARs$PValue, method="BH") -->
+<!-- idy = which(DARs$FDR < 5e-2 & DARs$logFC > 0) -->
+<!-- plot(DARs$logCPM, DARs$logFC,  -->
+<!--     pch=19, cex=0.1, col="grey",  -->
+<!--     ylab="logFC", xlab="logCPM", -->
+<!--     main=paste("Cluster", cluster) -->
+<!--   ) -->
+<!-- points(DARs$logCPM[idy],  -->
+<!--     DARs$logFC[idy],  -->
+<!--     pch=19,  -->
+<!--     cex=0.5,  -->
+<!--     col="red" -->
+<!--   ) -->
+
+<!-- ``` -->
+```{r}
+DAGs_cl <- FindAllMarkers(f74.seu, min.pct = 0.2, logfc.threshold = 0.3)
+DAGs_cl <- 
+  DAGs_cl %>%
+  mutate(positive=avg_logFC > 0)
+```
+```{r, fig.height=14, fig.width=9}
+top10_markers <- DAGs_cl %>%
+  filter(positive) %>%
+  group_by(cluster) %>%
+  arrange(p_val_adj) %>%
+  top_n(10) %>%
+  pull(gene) %>%
+  unique()
+
+top10_markers <- DAGs_cl %>%
+  filter(positive) %>%
+  group_by(cluster) %>%
+  # arrange(p_val_adj) %>%
+  top_n(10,wt = - p_val_adj) %>%
+  pull(gene)
+
+DotPlot(f74.seu, features = top10_markers) +
+  coord_flip()
+```
+
+Expression of markers in RNA data
+
+```{r, fig.width=12, fig.height=16}
+plot_marker_ATACvsRNA <- function(marker){
+    ggpubr::ggarrange(
+      FeaturePlot(f74.seu, feature=marker, reduction="umap.snap") + ggtitle("ATAC"), FeaturePlot(f74.rna.seu, feature=marker) + ggtitle("RNA")
+    ) %>% annotate_figure(top=marker)
+  }
+
+plot_cluster_marker_ATACvsRNA <- function(cl){
+  top10_cluster <-
+    DAGs_cl %>%
+    filter(positive) %>%
+    filter(cluster==cl) %>%
+    filter(gene %in% rownames(f74.rna.seu)) %>%
+    top_n(10,wt = - p_val_adj) %>%
+    pull(gene)
+  ggarrange(plotlist = map(top10_cluster, ~ plot_marker_ATACvsRNA(.x)), ncol=2, nrow=5) %>% 
+    annotate_figure(fig.lab=paste("Cluster", cl), fig.lab.size = 20, fig.lab.face = "bold")
+  }
+
+map(1:10, ~ plot_cluster_marker_ATACvsRNA(.x))
+```
+
+## Differential analysis only between the putative T-cell clusters
+```{r, fig.width=8, fig.height=15}
+t_clusters <- c("1", '2', '3', '4', '5')
+DAGs_tcells <- map(t_clusters, ~ FindMarkers(f74.seu, ident.1 = .x, ident.2 = setdiff(t_clusters,.x), min.pct = 0.2, logfc.threshold = 0.3))
+
+top20_tcells_markers <- imap(DAGs_tcells, ~ .x %>% rownames_to_column() %>% filter( avg_logFC > 0) %>% mutate(cluster=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  # filter(positive) %>%
+  group_by(cluster) %>%
+  top_n(20,wt = - p_val_adj) %>%
+  pull(rowname)
+
+
+DotPlot(f74.seu, features = top20_tcells_markers) +
+  coord_flip() +
+  ggtitle("T-cell subtypes markers (DA between clusters 1-5)")
+```
+
+Only between cluster 1 and 2
+```{r}
+DAGs_tcells_12 <- FindMarkers(f74.seu, ident.1 = '1', ident.2 = '2', min.pct = 0.2, logfc.threshold = 0.3)
+
+top20_cl12_markers <- DAGs_tcells_12 %>% 
+  rownames_to_column() %>% 
+  filter( avg_logFC > 0) %>% 
+  top_n(20,wt = - p_val_adj) %>%
+  pull(rowname)
+
+DotPlot(f74.seu, features = top20_cl12_markers) +
+  coord_flip() +
+  ggtitle("DA between clusters 1-2")
+```
+
+
+
+```{r}
+plotly::ggplotly(DimPlot(f74.rna.seu, group.by = "annotation"))
+```
+
+
+## Embedding on most variable genes in ATAC (not in gene expression)
+```{r}
+DefaultAssay(f74.seu) <- "ACTIVITY"
+f74.seu.hvgatac <- FindVariableFeatures(f74.seu)
+f74.seu.hvgatac <- RunPCA(f74.seu.hvgatac, dims=1:30)
+f74.seu.hvgatac <- RunUMAP(f74.seu.hvgatac, reduction = "pca", dims=1:30, verbose=FALSE) 
+
+f74.seu.hvgatac <- AddMetaData(f74.seu.hvgatac, x.sp@cluster, col.name='SnapATAC_cluster')
+DimPlot(f74.seu.hvgatac, reduction = "umap", group.by = "SnapATAC_cluster") 
+```
+
+## Save markers
+```{r}
+DAGs_cl %>% filter(positive) %>% write_csv("~/my_data/integrated_thymus/F74_ATAC_clusterMarkers_allVSall_20191104.csv")
+imap(DAGs_tcells, ~ .x %>% 
+  rownames_to_column("gene") %>%
+  filter(avg_logFC > 0) %>%
+  mutate(cluster=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  write_csv("~/my_data/integrated_thymus/F74_ATAC_clusterMarkers_1to5VS1to5_20191104.csv")
+
+DAGs_tcells_12 %>% 
+  rownames_to_column("gene") %>%
+  write_csv("~/my_data/integrated_thymus/F74_ATAC_clusterMarkers_1VS2_20191104.csv")
+```
+
+
+
+## Thoughts
+
+- There seems to be a correspondance for gene expression and accessibility in many "accessibility markers" (see Cluster 6) --> maybe integration would work better if I don't take only the most variable features in the RNA data. 
+
+

@@ -32,6 +32,19 @@ eucl_distance <- function(p,q){
 }
 
 
+#' Get cell type prediction from benchmark output
+getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score", filter_score=0){
+  pred.df <- seu.int$ATAC@meta.data[,c(id.col, score.col), drop=F] 
+  colnames(pred.df) <- c('predicted.id', "score")
+  pred.df <- pred.df %>%
+    rownames_to_column("cell") %>%
+    mutate(predicted.id = ifelse(score < filter_score, NA, as.character(predicted.id))) %>%
+    column_to_rownames("cell")
+  rownames(pred.df) <- str_remove(rownames(pred.df), "^ATAC_")
+  colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
+  pred.df
+}
+
 ### Plotting utils ###
 
 brewer_palette_4_values <- function(vec, palette, seed=42){

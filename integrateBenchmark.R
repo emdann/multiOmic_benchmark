@@ -60,22 +60,22 @@ integrate_seuratCCA <- function(sce.list, integrate_features, reference="RNA", q
   ## Scale data
   seurat.list <- map(seurat.list, ~ ScaleData(.x))
   ## Calculate CCA anchors
-  transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]], 
-                                          features = integrate_features, 
+  transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]],
+                                          features = integrate_features,
                                           reduction = "cca")
   ## Impute transcriptome for ATAC-seq cells
   refdata <- GetAssayData(seurat.list[[reference]], slot = "scale.data")
-  imputation <- TransferData(anchorset = transfer.anchors, refdata = refdata, 
+  imputation <- TransferData(anchorset = transfer.anchors, refdata = refdata,
                              weight.reduction = 'cca')
-  
+
   ## Merge imputed RNA data with real RNA data
-  imputed.sce <- SingleCellExperiment(list(normcounts=imputation@data), 
+  imputed.sce <- SingleCellExperiment(list(normcounts=imputation@data),
                                       colData=colData(sce.list[[query]]))
-  sce.rna.bind <- SingleCellExperiment(list(normcounts=refdata), 
+  sce.rna.bind <- SingleCellExperiment(list(normcounts=refdata),
                                        colData=colData(sce.list[[reference]]))
   merged.sce <- cbind(sce.rna.bind, imputed.sce)
-  colData(merged.sce)[["tech"]] <- ifelse(colnames(merged.sce) %in% colnames(sce.rna.bind), 
-                                          reference, 
+  colData(merged.sce)[["tech"]] <- ifelse(colnames(merged.sce) %in% colnames(sce.rna.bind),
+                                          reference,
                                           query)
   ## Prepare output object
   sce.list[[str_c("integrated.", reference)]] <- merged.sce
@@ -83,6 +83,7 @@ integrate_seuratCCA <- function(sce.list, integrate_features, reference="RNA", q
   misc <- list(transfer.anchors = transfer.anchors)
   return(list(intOut=intMAE, misc=misc))
   }
+
 
 #' LIGER NMF integration
 #' @param sce.list list of SingleCellExperiment objects for RNA and ATAC seq datasets
@@ -96,10 +97,16 @@ integrate_seuratCCA <- function(sce.list, integrate_features, reference="RNA", q
 integrate_liger <- function(sce.list, integrate_features, reference="RNA", query="ATAC"){
   data.list <- map(sce.list, ~ assay(.x, "counts"))
   liger.obj <- createLiger(data.list)
-  liger.obj@norm.data <- map(sce.list, ~ assay(.x, "cpm"))
+  # liger.obj@norm.data <- map(sce.list, ~ assay(.x, "logcounts"))
+  # liger.obj@raw.data[[query]] <- Matrix(logcounts(sce.list[[query]]))
+  liger.obj <- normalize(liger.obj)
+  liger.obj@norm.data[[query]] <- Matrix(logcounts(sce.list[[query]]))
+  ## Select genes
+  integrate_features <- integrate_features[which(integrate_features %in% rownames(liger.obj@norm.data[[reference]]) &
+                             integrate_features %in% rownames(liger.obj@norm.data[[query]]))]
   liger.obj@var.genes <- integrate_features
   ## Scale data
-  liger.obj <- scaleNotCenter(liger.obj)
+  liger.obj <- scaleNotCenter(liger.obj, remove.missing = F)
   ## Perform matrix factorization
   liger.obj <- optimizeALS(liger.obj, k=20, lambda = 5.0)
   ## Quantile normalization step
@@ -209,7 +216,7 @@ labelTransfer_conos <- function(conos.out, sce.list, annotation.col="annotation"
   annotation <- seurat.list[[reference]][[annotation.col]]
   annotation <- setNames(annotation[,1], rownames(annotation))
   ## propagate labels
-  new.label.probabilities <- conos.out$propagateLabels(labels = annotation, verbose = T)
+  new.label.probabilities <- conos.out$propagateLabels(labels = annotation, verbose = T, fixed.initial.labels=T)
   new.annot <- setNames(colnames(new.label.probabilities)[apply(new.label.probabilities,1,which.max)], rownames(new.label.probabilities))
   score <- apply(new.label.probabilities, 1, max)
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = data.frame(predicted.id = new.annot[colnames(seurat.list[[query]])],
@@ -237,7 +244,7 @@ run_SeuratCCA <- function(sce.list, integrate_features, reference="RNA", query="
   ## Calculate CCA anchors
   transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]], 
                                           features = integrate_features, 
-                                          reduction = "cca")
+                                          reduction = "lsi")
   return(list(model=transfer.anchors, input=seurat.list))
   }
 #' LIGER NMF model

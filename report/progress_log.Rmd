@@ -110,6 +110,9 @@ knitr::include_graphics("output/20191106_labelTransferEDA_F74/tcell_markers.png"
 - Integration w imputation instead of label transfer
 - Performance comparison on matched joint profilinf of ATAC - RNA on the same cells
 
+# Discussion
+- Does it make a difference how do you reduce ATAC to gene - features? Scoring that takes into account enhancer activity (e.g. Cicero) might be more informative to align differentiating cells.  
+
 # Methods
 
 ## Dataset details 
@@ -148,7 +151,7 @@ We performed dimensionality reduction on the bin x cell accessibility matrix usi
 | -------------|---------------|:---------------------------------|:-----:|:--------------------:|
 | Seurat CCA   | @stuartComprehensiveIntegrationSingleCell2019a | Pairing of cells based on Canonical Correlation analysis | Yes | / |
 | LIGER | @welchSingleCellMultiomicIntegration2019a | Joint Non-Negative Matrix factorization | Yes | / |
-| Conos | @barkasJointAnalysisHeterogeneous2019 | Joint neighboorhood graph construction | Yes | / |
+| Conos | Barkas et al. 2019 @barkasJointAnalysisHeterogeneous2019 | Joint neighboorhood graph construction | Yes | / |
 | scGen | @lotfollahiScGenPredictsSinglecell2019 | Joint embedding with Variational Autoencoder | No | Requires cell type annotation in both datasets |
 | totalVI | @gayosoJointModelRNA2019 | generative model + variational inference | No | Requires  multi-omic data from the same single-cells |
 | BBKNN | @polanskiBBKNNFastBatch | Joint neighboorhood graph construction | No | Bad alignment during testing |

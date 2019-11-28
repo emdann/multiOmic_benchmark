@@ -15,7 +15,7 @@ thymus.atac.act <- thymus.atac.act[names(which(table(rownames(thymus.atac.act)) 
 
 sce.list <- makeSCElist(list(RNA=thymus.rna, ATAC=thymus.atac.act))
 sce.list$RNA <- filterCells(sce.list$RNA)
-sce.list$ATAC <- filterCells(sce.list$ATAC, fracMito = 1)
+# sce.list$ATAC <- filterCells(sce.list$ATAC, fracMito = 1)
 
 sce.list <- map(sce.list, ~ normalizePerCell(.x))
 
@@ -27,14 +27,14 @@ rownames(sce.list$RNA) %<>% str_replace_all("_", "-")
 rownames(sce.list$ATAC) %<>% str_replace_all("_", "-")
 
 ## Add cell type annotation to RNA data
-annotation.df <- read.csv("~/my_data/F74_RNA_obs_v2.csv")
-annotation.df <- annotation.df %>%
-  dplyr::mutate(cell=str_remove(as.character(X), "F74_1_") %>% str_c(ifelse(batch==0,'_1', "_2"))) 
+annotation.df <- read.csv("~/my_data/F74_RNA_obs_v3.csv")
+# annotation.df <- annotation.df %>%
+#   dplyr::mutate(cell=str_remove(as.character(X), "F74_1_") %>% str_c(ifelse(batch==0,'_1', "_2"))) 
 
-coldata <- annotation.df[,c("cell", "anno_v2")] %>%
-  dplyr::rename(annotation = anno_v2) %>%
-  column_to_rownames("cell") 
+coldata <- annotation.df[,c("X", "anno_v3")] %>%
+  dplyr::rename(annotation = anno_v3) %>%
+  column_to_rownames("X") 
 colData(sce.list$RNA) <- DataFrame(coldata[colnames(sce.list$RNA),, drop=F])
 
 ## Save SingleCellExperiment list
-saveRDS(object = sce.list, file = "my_data/integrated_thymus/F74_SCElist_20191113.RDS")
+saveRDS(object = sce.list, file = "my_data/integrated_thymus/F74_SCElist_20191119.RDS")

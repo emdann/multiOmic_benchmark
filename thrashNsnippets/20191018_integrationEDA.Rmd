@@ -1,0 +1,512 @@
+---
+title: "Integration EDA"
+output: html_notebook
+---
+
+
+```{r}
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(SingleCellExperiment)
+  library(cowplot)
+  library(MultiAssayExperiment)
+  library(reshape2)
+  source("~/multiOmic_benchmark/selectFeatures.R")
+})
+```
+
+Load integration output
+```{r}
+int.cca <- readRDS("~/models/integrateCCA_F74_SCElist_20191017.RDS")
+int.liger <- readRDS("~/models/integrateliger_F74_SCElist_20191017.RDS")
+
+int.features <- int.cca$misc$transfer.anchors@anchor.features
+
+```
+
+<!-- ```{r} -->
+<!-- pseudocells.cca <- int.cca$intOut[["integrated.RNA"]]  -->
+<!-- pseudocells.liger <- int.liger$intOut[["integrated.RNA"]]  -->
+<!-- normcounts(int.liger$intOut[["integrated.RNA"]][,int.liger$intOut$tech=="RNA"])  <- normcounts(int.liger$intOut[["RNA"]][int.features,] ) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # sce.list <- readRDS("my_data/integrated_thymus/F74_SCElist_20191017.RDS") -->
+<!-- # small.sce.list <- map(sce.list, ~ .x[, sample(1:6000, size = 2000)]) -->
+<!-- # integrate_features <- HVG_Seurat(sce.list$RNA) -->
+<!-- # # transfer.anchors <- readRDS("models/F74_seuratCCA_20191017.RDS") -->
+<!-- # small.sce.list.integration <- integrate_seuratCCA(small.sce.list, integrate_features = integrate_features) -->
+<!-- plotUMAP <- function(pseudocells){ -->
+<!--   pseudocells <- scater::runPCA(pseudocells, ncomponents=50, exprs_values="normcounts", scale=TRUE, feature_set = int.features) -->
+<!--   pseudocells <- scater::runUMAP(pseudocells, use_dimred = "PCA", feature_set = integrate_features, n_neighbors = 30) -->
+<!--   umap.sce <- SingleCellExperiment::reducedDim(pseudocells, "UMAP") -->
+<!--   pca.sce <- SingleCellExperiment::reducedDim(pseudocells, "PCA") -->
+<!--   # pca.sce %>% as_tibble(rownames="cell") %>% -->
+<!--   #   left_join(as_tibble(colData(pseudocells), rownames="cell")) %>%  -->
+<!--   #   ggplot(aes(PC1, PC2, color=tech)) + -->
+<!--   #   geom_point(alpha=0.2) -->
+<!--   umap.sce %>% as_tibble(rownames="cell") %>% -->
+<!--     left_join(as_tibble(colData(pseudocells), rownames="cell")) %>%  -->
+<!--     ggplot(aes(V1, V2, color=tech)) + -->
+<!--     geom_point(alpha=0.2) -->
+
+<!-- } -->
+
+<!-- plotUMAP(pseudocells.cca) -->
+<!-- plotUMAP(pseudocells.liger) -->
+<!-- ``` -->
+<!-- # ```{r} -->
+<!-- # pseudocells.liger <- scater::runPCA(pseudocells.liger, ncomponents=50, exprs_values="normcounts", scale=TRUE, feature_set = int.features) -->
+<!-- #  -->
+<!-- # pca.sce <- SingleCellExperiment::reducedDim(pseudocells.liger, "PCA") -->
+<!-- # pca.sce %>% as_tibble(rownames="cell") %>% -->
+<!-- #   left_join(as_tibble(colData(pseudocells.liger), rownames="cell")) %>% -->
+<!-- #   ggplot(aes(PC1, PC2, color=tech)) + -->
+<!-- #   geom_point(alpha=0.2) -->
+<!-- # ``` -->
+<!-- #  -->
+<!-- #  -->
+
+Temporary fix
+```{r}
+H <- int.liger[["misc"]]$H
+H.norm <- int.liger[["misc"]]$H.norm
+
+
+W <- int.liger[["misc"]]$W
+V <- int.liger[["misc"]]$V
+
+Y.hnorm.project <- H.norm %*% (W + V$RNA)
+
+normcounts(int.liger$intOut[["integrated.RNA"]]) <- t(Y.hnorm.project) ## Temporary fix
+```
+
+
+
+```{r, fig.width=12, fig.height=5}
+# rna.seu <- as.Seurat(int.cca$intOut[["RNA"]])
+# atac.seu <- as.Seurat(int.cca$intOut[["ATAC"]], assay="ATAC")
+# 
+# imputed.assay <- CreateAssayObject(assay(int.cca$intOut[["integrated.RNA"]][,which(int.cca$intOut$tech=="ATAC")], 'normcounts'))
+# atac.seu[["RNA"]] <- imputed.assay
+# atac.seu@active.assay <- "RNA"
+# coembed <- merge(x = rna.seu@assays$RNA, y = imputed.assay)
+intOutput2seurat <- function(intOut, int.features){
+  int.seu <- as.Seurat(intOut[["integrated.RNA"]], counts=NULL, data="normcounts")
+  int.seu@assays$RNA@var.features <- int.features
+  return(int.seu)
+  }
+
+int.cca.seu <- intOutput2seurat(int.cca$intOut, int.features)
+
+int.cca.seu <- ScaleData(int.cca.seu, features = int.features)
+int.cca.seu <- RunPCA(int.cca.seu)
+int.cca.seu <- RunUMAP(int.cca.seu, reduction="pca", dims=1:50)
+
+int.liger.seu <- intOutput2seurat(int.liger$intOut, int.features = int.features)
+
+int.liger.seu <- ScaleData(int.liger.seu, features = int.features)
+int.liger.seu <- RunPCA(int.liger.seu)
+int.liger.seu <- RunUMAP(int.liger.seu, reduction="pca", dims=1:50)
+
+p1 <- DimPlot(int.liger.seu, reduction = "umap", group.by="tech") + ggtitle("LIGER")
+p2 <- DimPlot(int.cca.seu, reduction = "umap", group.by="tech") + ggtitle("CCA")
+
+ggpubr::ggarrange(p1, p2, common.legend = TRUE) +
+  ggsave("~/output/LIGER_vs_CCA_umap.jpeg", height = 6, width = 12)
+```
+
+### LIGER factor model
+
+Testing Liger integration as the authors
+```{r}
+ligerH.umap <- uwot::umap(int.liger$misc$H.norm, pca = NULL, verbose = TRUE, metric = "cosine", min_dist = 0.3, n_neighbors = 30L)
+ligerHraw.umap <- uwot::umap(purrr::reduce(int.liger$misc$H, rbind), pca = NULL, verbose = TRUE, metric = "cosine", min_dist = 0.3, n_neighbors = 30L)
+
+pl_hnorm <- as_tibble(ligerH.umap) %>%
+  mutate(cell=rownames(int.liger$misc$H.norm)) %>%
+  mutate(tech=int.liger$intOut@colData[cell,]) %>%
+  ggplot(aes(V1, V2, color=tech)) +
+  geom_point(size=0.5, alpha=0.4)
+pl_h <- as_tibble(ligerHraw.umap) %>%
+  mutate(cell=rownames(int.liger$misc$H.norm)) %>%
+  mutate(tech=int.liger$intOut@colData[cell,]) %>%
+  ggplot(aes(V1, V2, color=tech)) +
+  geom_point(size=0.5, alpha=0.4)
+
+ggpubr::ggarrange(pl_h + ggtitle("Liger H"), pl_hnorm + ggtitle("Liger H_norm"), common.legend = TRUE)
+```
+
+Inspection of NMF factor matrix before and after normalization
+```{r}
+smp.cells.rna <- sample(colnames(int.liger$intOut[["RNA"]]), 500)
+smp.cells.atac <- sample(colnames(int.liger$intOut[["ATAC"]]), 500)
+
+H <- int.liger[["misc"]]$H
+H.norm <- int.liger[["misc"]]$H.norm
+
+rbind(H$RNA[smp.cells.rna, ], H$ATAC[smp.cells.atac, ]) %>% 
+  melt(varnames=c("cell", "factor")) %>%
+  mutate(tech=int.liger$intOut@colData[cell,]) %>%
+  group_by(factor) %>%
+  mutate(rank=rank(value)) %>%
+  ungroup() %>%
+  dplyr::filter(factor< 12) %>%
+  ggplot(aes(tech, value)) +
+  ggbeeswarm::geom_quasirandom(aes(color=tech), alpha=0.4)  +
+  facet_wrap(factor~., scales="free_y") +
+  ggtitle("H")
+  
+H.norm[c(smp.cells.atac, smp.cells.rna),] %>% 
+  melt(varnames=c("cell", "factor")) %>%
+  mutate(tech=int.liger$intOut@colData[cell,]) %>%
+  group_by(factor) %>%
+  mutate(rank=rank(value)) %>%
+  ungroup() %>%
+  dplyr::filter(factor< 12) %>%
+  ggplot(aes(tech, value)) +
+  ggbeeswarm::geom_quasirandom(aes(color=tech), alpha=0.4)  +
+  facet_wrap(factor~., scales="free_y") +
+  ggtitle("H.norm")
+  
+
+```
+
+
+```{r}
+W <- int.liger[["misc"]]$W
+V <- int.liger[["misc"]]$V
+
+Y.hnorm.project <- H.norm %*% (W + V$RNA)
+
+ligerHnorm.project.umap <- uwot::umap(Y.hnorm.project, pca = 50, verbose = TRUE)
+
+pl_hnorm.project <- as_tibble(ligerHnorm.project.umap) %>%
+  mutate(cell=rownames(int.liger$misc$H.norm)) %>%
+  mutate(tech=int.liger$intOut@colData[cell,]) %>%
+  ggplot(aes(V1, V2, color=tech)) +
+  geom_point(size=0.5, alpha=0.4)
+
+pl_hnorm.project + ggtitle("H.norm projection")
+```
+```{r}
+Y.W.project <- purrr::reduce(H, rbind) %*% W
+
+ligerW.project.umap <- uwot::umap(Y.W.project, pca = 20, verbose = TRUE)
+
+pl_w.project <- as_tibble(ligerW.project.umap) %>%
+  mutate(cell=rownames(int.liger$misc$H.norm)) %>%
+  mutate(tech=int.liger$intOut@colData[cell,]) %>%
+  ggplot(aes(V1, V2, color=tech)) +
+  geom_point(size=0.5, alpha=0.4)
+
+pl_w.project + ggtitle("W projection")
+```
+
+
+How much does this projection resemble the true expression values?
+```{r}
+Y <- cpm(int.liger$intOut[["RNA"]])[int.features,]
+Y.scaled <- scale(t(Y), scale = T, center = F) 
+
+smp.genes <- sample(1:2000, 500)
+smp.Yproject <- Y.hnorm.project[,smp.genes]
+smp.Yscaled <- Y.scaled[,smp.genes]
+
+geneX.accuracy <- melt(smp.Yproject, varnames=c('cell', "gene")) %>%
+  full_join(melt(smp.Yscaled, varnames=c('cell', "gene")), by=c("cell", "gene"), suffix=c(".project", ".true")) %>%
+  group_by(gene) %>%
+  summarise(R2=cor(value.project, value.true, use="complete.obs"))
+  # ggplot(aes(value.project, value.true)) +
+  # geom_point(alpha=0.5, size=0.5) +
+  # facet_wrap(gene~., scales="free") +
+  # ggpubr::stat_cor()
+
+geneX.accuracy %>% ggplot(aes(R2)) + geom_histogram(bins = 50)
+
+
+```
+
+## CCA factor model
+
+```{r}
+int.cca$misc$transfer.anchors@anchors[,"score"] %>%
+  hist(breaks=100, main = "Anchor scores")
+
+int.cca$misc$transfer.anchors@anchors[which(int.cca$misc$transfer.anchors@anchors[,"cell1"]==1),]
+```
+
+## Plot imputed gene expression
+
+```{r}
+FeaturePlot()
+```
+
+
+## Compare accessibility/gene expression on projections
+
+
+
+```{r, message=FALSE}
+liger.df <- as.tibble(int.liger.seu@reductions$umap@cell.embeddings, rownames="cell") %>%
+   mutate(tech=int.liger$intOut@colData[cell,])
+
+cca.df <- as.tibble(int.cca.seu@reductions$umap@cell.embeddings, rownames="cell") %>%
+   mutate(tech=int.liger$intOut@colData[cell,])
+
+
+Y.atac <- logcounts(int.cca$intOut[["ATAC"]])
+Y.rna <- logcounts(int.cca$intOut[["RNA"]])
+
+# feature.oi <- "COL12A1"
+
+plot.marker <- function(int.df, feature.oi){
+  int.df.rna <- int.df %>% 
+    left_join(as_tibble(Y.rna[feature.oi,], rownames="cell")) %>%
+    left_join(as_tibble(Y.atac[feature.oi,], rownames="cell"), by="cell") %>%
+    mutate(log.value=ifelse(is.na(value.x), value.y, value.x)) %>%
+    group_by(tech) %>%
+    dplyr::arrange(log.value) %>%
+    ungroup() %>%
+    dplyr::filter(tech=="RNA") %>%
+    ggplot(aes(UMAP_1, UMAP_2, color=log.value)) +
+    geom_point(size=0.3) +
+    facet_wrap(tech~.) +
+    scale_color_viridis_c() +
+    # scale_color_gradient2(low="", high="red") +
+    ggtitle(feature.oi) +
+    theme_cowplot()
+  int.df.atac <- int.df %>% 
+    left_join(as_tibble(Y.rna[feature.oi,], rownames="cell")) %>%
+    left_join(as_tibble(Y.atac[feature.oi,], rownames="cell"), by="cell") %>%
+    mutate(log.value=ifelse(is.na(value.x), value.y, value.x)) %>%
+    group_by(tech) %>%
+    dplyr::arrange(log.value) %>%
+    ungroup() %>%
+    dplyr::filter(tech=="ATAC") %>%
+    ggplot(aes(UMAP_1, UMAP_2, color=log.value)) +
+    geom_point(size=0.3) +
+    facet_wrap(tech~.) +
+    scale_color_viridis_c() +
+    # scale_color_gradient2(low="", high="red") +
+    ggtitle(feature.oi) +
+    theme_cowplot()
+  ggpubr::ggarrange(int.df.rna, int.df.atac)
+}
+
+
+plot.marker(cca.df, "MMP2")
+plot.marker(liger.df, "MMP2")
+
+```
+
+```{r}
+plot.marker(cca.df, "GNG4")
+plot.marker(liger.df, "GNG4")
+```
+
+```{r}
+Y.impute.liger <- normcounts(int.liger$intOut[["integrated.RNA"]])
+Y.impute.cca <- normcounts(int.cca$intOut[["integrated.RNA"]])
+
+plotImputedExpression <- function(feature.oi, method){
+  if (method=="liger") {
+    Y.impute <- Y.impute.liger
+    int.df <- liger.df
+  } else if (method =="cca") {
+    Y.impute <- Y.impute.cca
+    int.df <- cca.df
+  }
+  int.df.imputed <-
+    int.df %>% 
+      left_join(as_tibble(Y.impute[feature.oi,], rownames="cell")) %>%
+      # mutate(log.value=ifelse(is.na(value.x), value.y, value.x)) %>%
+      dplyr::rename(log.value=value) %>% 
+      group_by(tech) %>%
+      dplyr::arrange(log.value) %>%
+      ungroup() 
+  pl1 <- int.df.imputed %>%
+      dplyr::filter(tech=="RNA") %>%
+      ggplot(aes(UMAP_1, UMAP_2, color=log.value)) +
+      geom_point(size=0.3) +
+      facet_wrap(tech~.) +
+      scale_color_viridis_c(option = "magma") +
+      ggtitle(feature.oi) +
+      theme_cowplot()
+  pl2 <- int.df.imputed %>%
+      dplyr::filter(tech=="ATAC") %>%
+      ggplot(aes(UMAP_1, UMAP_2, color=log.value)) +
+      geom_point(size=0.3) +
+      facet_wrap(tech~.) +
+      scale_color_viridis_c(option = "magma") + 
+      ggtitle(feature.oi) +
+      theme_cowplot()
+  ggarrange(pl1, pl2)
+}
+
+plotImputedExpression("MMP2", "liger") + ggsave("~/output/MMP2_imputed_liger.jpeg", height = 4, width=8)
+plotImputedExpression("MMP2", "cca") + ggsave("~/output/MMP2_imputed_cca.jpeg", height = 4, width=8)
+
+plotImputedExpression("HLA-DRA", "liger") + ggsave("~/output/HLADRA_imputed_liger.jpeg", height = 4, width=8)
+plotImputedExpression("HLA-DRA", "cca") + ggsave("~/output/HLADRA_imputed_cca.jpeg", height = 4, width=8)
+```
+
+
+## Explore expression-accessibility relationships
+Which genes are found to have high expression-accessibility correlation?
+
+Having a look
+```{r}
+
+int.out <- int.liger$intOut[["integrated.RNA"]] 
+
+imputation.query <- normcounts(int.out)[,which(int.out$tech=="ATAC")]
+true.query <- cpm(int.liger$intOut[["ATAC"]])[rownames(imputation.query),] %>% as.matrix()
+
+smp.genes <- sample(int.features, 10)
+map(list(imputation.query, true.query), ~ melt(.x[smp.genes,], varnames = c("gene", "cell"))) %>%
+    purrr::reduce(full_join, by=c("gene", "cell"), suffix=c(".imputed", ".true")) %>%
+  ggplot(aes(value.true, log1p(value.imputed))) +
+  geom_point(size=0.3) +
+  facet_wrap(gene~., scales="free") +
+  ggpubr::stat_cor(method = "spearman")
+
+```
+
+### Based on model weight matrices
+```{r}
+## LIGER
+smp.genes.liger <- melt(int.liger$misc$W, varnames=c("factor", "gene")) %>%
+  top_n(10, value) %>%
+  distinct(gene) %>%
+  pull(gene)
+
+
+map(list(imputation.query, true.query), ~ melt(.x[smp.genes.liger,], varnames = c("gene", "cell"))) %>%
+    purrr::reduce(full_join, by=c("gene", "cell"), suffix=c(".imputed", ".true")) %>%
+  ggplot(aes(log1p(value.true), log1p(value.imputed))) +
+  geom_point(size=0.3) +
+  facet_wrap(gene~., scales="free") +
+  ggpubr::stat_cor(method = "pearson")
+```
+
+Plain correlation
+```{r, fig.height=7, fig.width=12}
+
+computeFeatCor <- function(int.out, int.features, reference="RNA" , query="ATAC"){
+  imputation.query <- normcounts(int.out[["integrated.RNA"]])[int.features,which(int.out$tech==query)] %>% as.matrix()
+  true.query <- cpm(int.out[[query]])[int.features,] %>% as.matrix()
+  
+  feat.cor <- map_dbl(int.features, ~ cor(imputation.query[.x,], true.query[.x,])) %>%
+    set_names(int.features)
+  return(feat.cor)
+  }
+
+
+feat.cor.liger <- computeFeatCor(int.liger$intOut, int.features)
+feat.cor.cca <- computeFeatCor(int.cca$intOut, int.features)
+
+cor_pl1 <- as.tibble(feat.cor.cca, rownames="gene") %>%
+  dplyr::rename(feature.cor=value) %>%
+  mutate(rank=rank(feature.cor)) %>%
+  ggplot(aes(rank, feature.cor)) +
+  geom_point() +
+    ggrepel::geom_text_repel(data=. %>% filter(rank > (max(rank) - 20)), aes(label=gene), 
+                           # xlim = c(3050, 3100),
+                           # nudge_x=0.05,
+                           # hjust=-1,
+                           # direction="y",
+                           segment.size = 0.2) +
+  ggtitle("CCA") +
+  ylim(-0.2, 0.6)
+
+cor_pl2 <-
+  as.tibble(feat.cor.liger, rownames="gene") %>%
+  dplyr::rename(feature.cor=value) %>%
+  mutate(rank=rank(feature.cor)) %>%
+  ggplot(aes(rank, feature.cor)) +
+  geom_point() +
+  ggrepel::geom_text_repel(data=. %>% filter(rank > (max(rank) - 20)), aes(label=gene), 
+                           # xlim = c(3050, 3100),
+                           # nudge_x=0.05,
+                           # hjust=-1,
+                           # direction="y",
+                           segment.size = 0.2) +
+  ggtitle("LIGER") +
+    ylim(-0.2, 0.6) +
+    xlim(0,3100)
+
+
+ggpubr::ggarrange(cor_pl1, cor_pl2)
+```
+
+```{r}
+plot.marker(cca.df, "MMP2") + ggsave("~/output/MMP2_real_cca.jpeg", height = 4, width = 8)
+plot.marker(liger.df, "MMP2") + ggsave("~/output/MMP2_real_liger.jpeg", height = 4, width = 8)
+
+plot.marker(cca.df, "HLA-DRA") + ggsave("~/output/HLADRA_real_cca.jpeg", height = 4, width = 8)
+plot.marker(liger.df, "HLA-DRA") + ggsave("~/output/HLADRA_real_liger.jpeg", height = 4, width = 8)
+```
+```{r}
+plot.marker(cca.df, "CD74")
+plot.marker(liger.df, "CD74")
+```
+
+
+## PCA on integrated space
+```{r}
+pl1 <- DimPlot(int.liger.seu, reduction = "pca", group.by = "tech", dims = 1:2)
+pl2 <- DimPlot(int.cca.seu, reduction = "pca", group.by = "tech", dims = 1:2)
+
+ggarrange(pl1 + ggtitle("LIGER"), pl2 + ggtitle("CCA")) +
+  ggsave("~/output/LIGER_vs_CCA_pca.jpeg", height = 6, width = 12)
+```
+
+```{r}
+abs(int.liger.seu@reductions$pca@feature.loadings) %>% 
+{apply(., 2, function(x) (x - min(x))/(max(x)-min(x)))} %>% 
+pheatmap::pheatmap(show_rownames = F, show_colnames = F, cluster_cols = T)
+
+
+```
+```{r}
+abs(int.cca.seu@reductions$pca@feature.loadings) %>% 
+{apply(., 2, function(x) (x - min(x))/(max(x)-min(x)))} %>% 
+pheatmap::pheatmap(show_rownames = F, show_colnames = F, cluster_cols = T)
+
+```
+```{r}
+FeaturePlot(int.liger.seu, features = c("PC_1", "PC_2", "PC_3", "PC_4"))
+FeaturePlot(int.cca.seu, features = c("PC_1", "PC_2", "PC_3", "PC_4"))
+```
+
+
+```{r}
+getVarianceExplained <- function(SeuratObj){
+  pca = SeuratObj@reductions$pca
+  eigValues = (pca@stdev)^2  ## EigenValues
+  varExplained = eigValues / sum(eigValues)
+  return(varExplained)
+}
+plot(getVarianceExplained(int.cca.seu))
+plot(getVarianceExplained(int.liger.seu))
+```
+
+
+```{r}
+abs(int.liger.seu@reductions$pca@feature.loadings) %>% 
+{apply(., 2, function(x) (x - min(x))/(max(x)-min(x)))} %>%
+  melt(varnames=c("gene", "factor")) %>%
+  filter(factor=="PC_1") %>%
+  arrange(-value) 
+```
+```{r}
+FeaturePlot(int.cca.seu, features = "MMP2", split.by = "tech")
+FeaturePlot(int.liger.seu, features = "MMP2", split.by = "tech")
+```
+
+
+
+
+

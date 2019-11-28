@@ -1,0 +1,41 @@
+---
+title: "ATAC preprocessing with LSI"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(ggplot2)
+peaks <- Read10X_h5("~/my_data/10X_data/atac_v1_pbmc_10k_filtered_peak_bc_matrix.h5")
+orig.ATAC <- readRDS("~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+```
+
+```{r}
+bmat.counts <- t(orig.ATAC@bmat)
+rownames(bmat.counts) <- str_replace(orig.ATAC@feature$name, ":|-", "_")
+
+pbmc.atac <- CreateSeuratObject(counts = bmat.counts, assay = "ATAC", project = "10x_ATAC")
+# pbmc.atac[["ACTIVITY"]] <- CreateAssayObject(counts = activity.matrix)
+meta <- read.table("~/my_data/10X_data/atac_pbmc_10k_nextgem_singlecell.csv", sep = ",", header = TRUE, row.names = 1, 
+    stringsAsFactors = FALSE)
+meta <- meta[colnames(pbmc.atac), ]
+pbmc.atac <- AddMetaData(pbmc.atac, metadata = meta)
+hist(pbmc.atac$nCount_ATAC, breaks=100)
+pbmc.atac <- subset(pbmc.atac, subset = nCount_ATAC > 1000)
+pbmc.atac$tech <- "atac"
+
+```
+
+```{r}
+VariableFeatures(pbmc.atac) <- names(which(Matrix::rowSums(pbmc.atac) > 50))
+pbmc.atac <- RunLSI(pbmc.atac, n = 50, scale.max = NULL)
+pbmc.atac <- RunUMAP(pbmc.atac, reduction = "lsi", dims = 1:50)
+```
+
+```{r}
+DimPlot(pbmc.atac, reduction = "umap") + NoLegend() + ggtitle("scATAC-seq")
+```
+```{r}
+pbmc.atac@reductions$lsi
+```
+
