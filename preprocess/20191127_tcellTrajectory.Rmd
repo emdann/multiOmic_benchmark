@@ -1,0 +1,489 @@
+---
+title: "Pseudotime analysis of T-cells in developing thymus"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(conos)
+library(ggpubr)
+library(tidyverse)
+library(SingleCellExperiment)
+# library(monocle3)
+source("~/multiOmic_benchmark/utils.R")
+source("~/multiOmic_benchmark/integrateBenchmark.R")
+source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
+```
+
+Based on the results of my benchmark, I set out to align expression and accessibility profiles from the F74 developing thymus dataset to detect changes in accessibility along pseudotime trajectories. While the benchmark was based on the task of label propagation, I here use the two most faithful methods (Seurat CCA and Conos) to achieve a common embedding of ATAC-seq and RNA-seq cells.
+
+Load datasets.
+
+```{r}
+rna.sce <- readRDS("~/my_data/F74_RNA_seurat_processed.RDS")
+atac.sce <- readRDS("~/my_data/F74_ATAC_snapAtac_processed_bgmat.RDS")
+```
+
+Filter genes with zero variance
+```{r}
+rna.gene.var <- as.matrix(counts(rna.sce)) %>% rowVars()
+atac.gene.var <- as.matrix(counts(atac.sce)) %>% rowVars()
+
+rna.sce <- rna.sce[which(rna.gene.var > 0),]
+atac.sce <- atac.sce[which(atac.gene.var > 0),]
+
+rna.sce; atac.sce
+```
+
+
+## Integration of T cells clusters
+I re-run the integration based on the T cell subset. To select cells from the scATAC dataset, I take the SnapATAC clusters that best correspond to T-cells, based on label transfer.
+
+```{r}
+tcells.sce.atac <- atac.sce[,which(as.numeric(atac.sce$seurat_clusters) %in% c(1:9))]
+
+tcells.rna.ix <- which(rna.sce$annotation %in% c("DN","DP (Q)", "DP (P)", "SP (1)", "SP (2)"))
+tcells.sce.rna <- rna.sce[,tcells.rna.ix]
+
+tcells.sce.list <- list(RNA=tcells.sce.rna, ATAC=tcells.sce.atac)
+```
+
+Next, I select genes on which to perform integration. I take the union of the most variable features in the RNA dataset and the most covered features in the ATAC dataset
+
+```{r}
+hcg.atac <- select_highlyCovered(tcells.sce.list$ATAC, frac_cells = 0.2)
+hvg.rna <- select_highlyVariable(tcells.sce.list$RNA)
+
+UpSetR::upset(UpSetR::fromList(list(HVG.RNA=hvg.rna, HCG.ATAC=hcg.atac)))
+```
+
+Remove cell cycle genes, that might interfere with pseudotime ordering
+```{r}
+cell_cycle_genes <- read.table("~/annotations/cell_cycle_genes.tsv")$V1
+
+integrate_features_union <- union(hvg.rna, hcg.atac)
+integrate_features_union <- setdiff(integrate_features_union, cell_cycle_genes) 
+
+## Select features in both datasets
+integrate_features_union <- intersect(integrate_features_union, intersect(rownames(tcells.sce.list$ATAC), rownames(tcells.sce.list$RNA))) 
+
+length(integrate_features_union)
+# integrate_features_ref <- hvg.rna 
+# integrate_features_ref <- setdiff(integrate_features_ref, cell_cycle_genes) 
+liger.obj <- scaleNotCenter(liger.obj, remove.missing = F)
+```
+
+Visualize T cells in RNA dataset
+```{r}
+tcells.RNA.union <- tcells.seu.list$RNA
+VariableFeatures(tcells.RNA.union) <- integrate_features_union
+tcells.RNA.union <- ScaleData(tcells.RNA.union) %>% RunPCA() %>% RunUMAP(dims=1:40)
+
+DimPlot(tcells.RNA.union, group.by = "annotation", label=TRUE) + ggtitle("RNA - feature union")
+```
+
+Visualize markers 
+```{r, fig.width=15, fig.height=10}
+t.cell.markers <- list(known.markers = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "TRAC", "CD4", "CD8A", "CD8B"),
+                       chemokine.receptors = c("CCR9", "CCR7"),
+                       tcr.activation = c("CD5", "CD27"),
+                       proliferation=c("PCNA", "CDK1", "MKI67"),
+                       cyclin.D = c("CCND2", "CCND3"),
+                       recombination=c("RAG1", "RAG2"),
+                       apoptosis=c("HRK","BMF", "TP53INP1"),
+                       stage.markers = c("ST18", "HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "SATB1", "TOX2")
+                       ) 
+# FeaturePlot(tcells.RNA.ref, features = t.cell.markers$known.markers, cols = viridis::viridis(n=10))
+FeaturePlot(tcells.RNA.union, features = t.cell.markers$known.markers, cols = viridis::viridis(n=10))
+```
+
+Visualize T cells in ATAC dataset: is the trajectory visible in the binary matrix?
+```{r}
+tcells.ATAC.union <- tcells.seu.list$ATAC
+# tcells.ATAC.union <- NormalizeData(tcells.ATAC.union)
+VariableFeatures(tcells.ATAC.union) <- integrate_features_union
+tcells.ATAC.union <- RunLSI(tcells.ATAC.union, n=50, scale.max = NULL)
+tcells.ATAC.union <- RunUMAP(tcells.ATAC.union, reduction = "lsi", dims = 1:50)
+
+DimPlot(tcells.ATAC.union, reduction = "umap", group.by = "seurat_clusters", label = TRUE) + ggtitle("ATAC gmat")
+```
+
+#### Run CCA and Conos
+
+Run CCA
+```{r, fig.width=10, fig.height=5}
+sce.list <- tcells.sce.list
+reference = "RNA"
+query = "ATAC" 
+seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
+seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
+## Scale data
+seurat.list <- map(seurat.list, ~ ScaleData(.x))
+## Calculate CCA anchors
+transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], 
+                                        query = seurat.list[[query]],
+                                        features = integrate_features_union, 
+                                        reduction = "cca")
+
+## Impute expression profiles for ATAC cells (for all genes, not just integration features)
+refdata <- GetAssayData(seurat.list$RNA, assay = "RNA", slot = "data")
+imputation <- TransferData(anchorset = transfer.anchors, refdata = refdata, weight.reduction = seurat.list$ATAC[["LSI"]])
+
+## Merge datasets and co-embed
+seurat.list$ATAC[["RNA"]] <- imputation
+coembed <- merge(x = seurat.list$RNA, y = seurat.list$ATAC)
+
+coembed <- ScaleData(coembed, features = integrate_features_union, do.scale = FALSE)
+coembed <- RunPCA(coembed, features = integrate_features_union, verbose = FALSE)
+coembed <- RunUMAP(coembed, dims = 1:30)
+
+coembed <- AddMetaData(coembed, metadata = ifelse(colnames(coembed) %in% colnames(seurat.list[[reference]]), reference, query), col.name = "tech")
+
+DimPlot(coembed, group.by = c('tech', "annotation"))
+```
+
+Run Conos
+```{r}
+data.processed <- map(sce.list, ~ as.Seurat(.x)) 
+VariableFeatures(data.processed[[reference]]) <- integrate_features_union
+VariableFeatures(data.processed[[query]]) <- integrate_features_union
+data.processed <- map(data.processed, ~ ScaleData(.x) %>% RunPCA(dims=1:30))
+l.con <- Conos$new(data.processed,n.cores=30)
+l.con$buildGraph(k=15,k.self=5,k.self.weigh=0.01,ncomps=30,n.odgenes=5e3,space='PCA') 
+
+l.con$findCommunities(resolution=1.5)
+l.con$embedGraph(alpha=1/2)
+  
+conos.out <- conos.model$model
+l.con$plotGraph(color.by = "sample")
+
+geneX <- seurat.list[[reference]]@assays$RNA@scale.data[3,]
+geneX <- setNames(annotation[,1], rownames(annotation))
+new.label.probabilities <- l.con$propagateLabels(labels = geneX, verbose = T, fixed.initial.labels=T)
+hist(new.label.probabilities)
+l.con$correctGenes(genes = integrate_features_union, count.matrix = Matrix(seurat.list$ATAC@assays$ATAC@data))
+
+```
+
+```{r, fig.height=20, fig.width=9}
+FeaturePlot(coembed, features = t.cell.markers$stage.markers, split.by = "tech", cols = viridis::viridis(n=100)) + ggtitle("Stage Markers")
+```
+```{r, fig.height=25, fig.width=9}
+FeaturePlot(coembed, features = t.cell.markers$known.markers, split.by = "tech", slot = "data", cols = viridis::viridis(n=100))
+```
+```{r}
+FeaturePlot(coembed, features = t.cell.markers$recombination, split.by = "tech", slot = "data", cols = viridis::viridis(n=100)) 
+```
+
+Transfer labels on ATAC dataset
+```{r, fig.width=10, fig.height=5}
+celltype.predictions <- TransferData(anchorset = transfer.anchors, 
+                                     refdata = seurat.list[[reference]]$annotation, 
+                                     weight.reduction = seurat.list$ATAC[["LSI"]])
+cell.types <- unique(coembed$annotation)
+cell.type.pal <- brewer_palette_4_values(cell.types, palette = "Set1") %>% setNames(cell.types)
+
+coembed <- AddMetaData(coembed, metadata = celltype.predictions)
+coembed@meta.data %<>%
+  rownames_to_column() %>%
+  dplyr::mutate(annotation=ifelse(is.na(predicted.id) , annotation, NA)) %>%
+  column_to_rownames()
+
+coembed@meta.data <-
+  coembed@meta.data %>%
+  rownames_to_column() %>%
+  dplyr::mutate(annotation=ifelse(is.na(annotation) & prediction.score.max > 0.5, predicted.id, annotation)) %>%
+  column_to_rownames()
+CombinePlots(
+  list(DimPlot(coembed, group.by = c("predicted.id"), cols = cell.type.pal) + ggtitle("prediction"),
+  DimPlot(coembed, group.by = c("annotation"), cols = cell.type.pal) + ggtitle("Original + prediction")),
+  legend = "top"
+  )
+```
+```{r}
+FeaturePlot(coembed, features = "prediction.score.max", cells = which(coembed$tech=="ATAC")) + scale_color_viridis_c()
+```
+
+
+### Run Pseudotime analysis 
+Identify cell of origin based on IGLL1 and CD34
+```{r, fig.height=16, fig.width=16}
+FeaturePlot(coembed, features = c("IGLL1", "CD34"), split.by = "tech", slot = "data", cols = viridis::viridis(n=100))
+```
+```{r}
+cell.oo <-
+  coembed@meta.data %>% 
+  rownames_to_column("cell") %>%
+  mutate(IGLL1=coembed@assays$RNA@counts["IGLL1",cell]) %>%
+  select(cell, annotation, IGLL1) %>%
+  arrange(-IGLL1) %>%
+  filter(annotation=="DN") %>%
+  top_n(1, IGLL1) %>%
+  pull(cell)
+
+coembed@reductions$umap@cell.embeddings %>%
+  as.tibble(rownames="cell") %>%
+  mutate(cell.oo = ifelse(cell %in% cell.oo, T, F)) %>%
+  ggplot(aes(UMAP_1, UMAP_2)) +
+  geom_point(color="grey50") +
+  geom_point(data=. %>% filter(cell.oo),color='red') +
+  ggrepel::geom_text_repel(data=. %>% filter(cell.oo), aes(label="cell of origin"), color='red') +
+  theme_cowplot() 
+
+coembed <- AddMetaData(coembed, ifelse(colnames(coembed)==cell.oo, TRUE, FALSE), col.name = "iroot_cell")
+
+  
+```
+
+
+```{r}
+merged.sce <- SingleCellExperiment(list(counts=coembed@assays$RNA@counts, logcounts=coembed@assays$RNA@data), colData=coembed@meta.data[, c("annotation", "tech", "iroot_cell")],
+                     reducedDims = map(coembed@reductions, ~ .x@cell.embeddings))
+
+saveRDS(object = merged.sce, "~/my_data/Tcells_CCA_integration_20191127.RDS")
+saveRDS(object = integrate_features_union, "~/my_data/intFeatures_Tcells_CCA_integration_20191127.RDS")
+```
+
+
+```{r}
+dpt <- read.csv('~/my_data/Tcells_CCA_integration_20191127_scanpy_dpt.csv') %>%
+  select(X, dpt_pseudotime)
+
+coembed <- AddMetaData(coembed, column_to_rownames(dpt, 'X'))
+saveRDS(coembed, "~/my_data/Tcells_CCA_integration_seurat_20191127.Rmd")
+```
+
+```{r}
+FeaturePlot(coembed, reduction = "umap", feature = "dpt_pseudotime", split.by = "tech", col=viridis::viridis(10)) 
+```
+```{r, fig.height=8, fig.width=10}
+coembed@meta.data %>%
+  dplyr::mutate(`DPT rank`=dense_rank(dpt_pseudotime)) %>%
+  ggplot(aes(`DPT rank`)) +
+  # ggplot(aes(dpt_pseudotime)) +
+  # geom_point(aes(color=annotation)) +
+  # facet_grid(annotation~.)
+  geom_histogram(aes(fill=annotation), bins=50) +
+  facet_grid(annotation~tech) +
+  theme_bw(base_size = 16) +
+  scale_fill_manual(values = cell.type.pal)
+
+```
+
+Check expression of markers along pseudotime
+```{r}
+coembed@assays$RNA@data[t.cell.markers$known.markers, ] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell")) %>%
+  group_by(gene) %>%
+  # mutate(value=(value-mean(value))/sd(value)) %>%
+  left_join(coembed@meta.data[,"dpt_pseudotime", drop=F] %>% rownames_to_column("cell")) %>%
+  mutate(pseudotime.rank=dense_rank(dpt_pseudotime)) %>%
+  ggplot(aes(pseudotime.rank, gene)) +
+  geom_tile(aes(fill=value)) +
+  scale_fill_viridis_c()
+```
+
+Bin ATAC cells by pseudotime
+```{r, fig.width=15, fig.height=4}
+dpt.df <- 
+  coembed@meta.data %>%
+  rownames_to_column("cell") %>%
+  # filter(tech=="ATAC") %>%
+  # group_by(tech) %>%
+  dplyr::mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
+  mutate(dpt_bin=cut(dpt_rank, breaks = 100)) %>%
+  mutate(dpt_bin=as.numeric(dpt_bin)) %>%
+  # ungroup() %>%
+  select(cell,tech, annotation, prediction.score.max, dpt_bin, dpt_pseudotime)
+
+cell.type.pl <- dpt.df %>%
+  ggplot(aes(dpt_bin, fill = annotation)) +
+  geom_bar() +
+  scale_fill_manual(values=cell.type.pal, na.value="grey50") +
+  facet_grid(tech~.) +
+  xlab("Pseudotime bin") +
+  theme_bw(base_size = 16)
+
+cell.type.pl
+```
+
+Fraction of accessible bins at each pseudotime bin 
+```{r, fig.width=15, fig.height=8}
+snap.out <- readRDS(file = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+atac.dpt.df <- 
+  coembed@meta.data %>%
+  rownames_to_column("cell") %>%
+  filter(tech=="ATAC") %>%
+  # group_by(tech) %>%
+  dplyr::mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
+  mutate(dpt_bin=cut(dpt_rank, breaks = 100)) %>%
+  mutate(dpt_bin=as.numeric(dpt_bin)) %>%
+  # ungroup() %>%
+  select(cell,tech, annotation, prediction.score.max, dpt_bin, dpt_pseudotime)
+
+cell.type.pl <- atac.dpt.df %>%
+  ggplot(aes(dpt_bin, fill = annotation)) +
+  geom_bar() +
+  scale_fill_manual(values=cell.type.pal, na.value="grey50") +
+  xlab("Pseudotime bin") +
+  theme_bw(base_size = 16)
+
+groups <- atac.dpt.df[, c("cell", "dpt_bin")]
+bmat <- snap.out@bmat[str_remove(groups$cell, "ATAC_"),]
+frac.accessible <- rowSums(bmat)/ncol(bmat)
+acc.fraction.pl <- groups %>%
+  mutate(frac_accessible=frac.accessible[str_remove(cell, "ATAC_")]) %>%
+  ggplot(aes(dpt_bin, frac_accessible)) +
+  geom_boxplot(aes(group=as.factor(dpt_bin)), outlier.alpha = 0.3) +
+  # geom_jitter(alpha=0.1) +
+  xlab("Pseudotime bin") +
+  ylab("Fraction of accessible bins") +
+  theme_bw(base_size = 16) 
+  
+acc.fraction.pl 
+plot_grid(cell.type.pl + theme(legend.position="top", axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank()), 
+          acc.fraction.pl, 
+          align = "v", ncol=1, nrow=2, axis="l")
+```
+
+
+
+```{r}
+acc.mat <- coembed@assays$ATAC@data
+markers.acc <- acc.mat[intersect(c(t.cell.markers$known.markers, t.cell.markers$chemokine.receptors, t.cell.markers$recombination), rownames(acc.mat)),, drop=F]
+
+markers.df <- data.frame(t(as.matrix(markers.acc[,dpt.df$cell[dpt.df$tech=="ATAC"]]))) %>%
+  rownames_to_column("cell") %>%
+  pivot_longer(cols = rownames(markers.acc), names_to = "marker.gene", values_to = "accessibility")
+
+annotation.hm <- atac.dpt.df %>%
+  group_by(dpt_bin, annotation) %>%
+  summarise(n=n()) %>%
+  ggplot(aes(dpt_bin, annotation)) +
+  geom_tile(aes(alpha=n, fill=annotation))  +
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values=cell.type.pal, na.value="grey50") +
+  guides(fill='none', alpha='none') +
+  theme(axis.line = element_blank(), axis.ticks = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank())
+
+markers.hm <- atac.dpt.df %>%
+  full_join(markers.df) %>%
+  group_by(dpt_bin, marker.gene) %>%
+  summarise(frac_accessible=sum(accessibility)/n()) %>%
+  ungroup() %>%
+  mutate(marker.gene=factor(marker.gene, levels = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "CCR9","CCR7", "RAG1", "RAG2", "TRAC", "CD4", "CD8A", "CD8B"))) %>%
+  mutate(marker.gene=factor(marker.gene, levels = rev(levels(marker.gene)))) %>%
+  group_by(marker.gene) %>%
+  mutate(frac_accessible=(frac_accessible - min(frac_accessible))/max(frac_accessible) - min(frac_accessible)) %>%
+  ggplot(aes(dpt_bin, marker.gene, fill=frac_accessible)) + 
+  geom_tile() +
+  scale_fill_viridis_c(name="Frac.cells") +
+  xlab("Pseudotime bin") +
+  theme_classic(base_size = 16) +
+  theme(axis.line = element_blank(), axis.ticks = element_blank(), axis.text.x = element_blank())
+
+leg <- get_legend(markers.hm)
+gr1 <- plot_grid(annotation.hm, markers.hm + theme(legend.position = "none"), nrow=2, rel_heights = c(1,2), align = "v")
+gr2 <- plot_grid(ggplot() +  theme_void(),leg, nrow=2, rel_heights = c(1,2))
+plot_grid(gr1, gr2, rel_widths = c(3,1))
+```
+
+## Motif analysis 
+
+Call peaks 
+```{r}
+## Call peaks on clusters
+clusters.sel <- unique(tcells.sce.atac$seurat_clusters)
+peaks.ls = mclapply(seq(clusters.sel), function(i){
+  print(paste("cluster", clusters.sel[i]))
+  peaks = runMACS(
+      obj=snap.out[which(snap.out@metaData$barcode %in% colnames(tcells.sce.atac)[tcells.sce.atac$seurat_clusters==clusters.sel[i]]),], 
+      output.prefix=paste0("Tcells_F74_cluster", clusters.sel[i]),
+      path.to.snaptools="/opt/conda/bin/snaptools",
+      path.to.macs="/opt/conda/bin/macs2",
+      gsize="hs", # mm, hs, etc
+      buffer.size=500, 
+      num.cores=3,
+      macs.options="--nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR",
+      tmp.folder=tempdir()
+ )
+peaks
+}, mc.cores=5)
+peaks.names = system("ls | grep narrowPeak", intern=TRUE)
+peak.gr.ls = lapply(peaks.names, function(x){
+  peak.df = read.table(x)
+  GRanges(peak.df[,1], IRanges(peak.df[,2], peak.df[,3]))
+})
+peak.gr = reduce(Reduce(c, peak.gr.ls))
+
+## Make cell by peak matrix
+
+peaks
+```
+
+Using chromVAR implementation in snapATAC
+```{r}
+library(chromVAR)
+library(motifmatchr)
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+
+
+# snap.out = makeBinary(x.sp, "pmat")
+snap.out@mmat = runChromVAR(
+  obj=snap.out[which(snap.out@metaData$barcode %in% dpt.bin.cells),],
+  input.mat="bmat",
+  genome=BSgenome.Hsapiens.UCSC.hg38,
+  # min.count=10,
+  species="Homo sapiens"
+);
+x.sp;
+```
+
+
+```{r, fig.height=15, fig.width=7}
+
+acc.df <- data.frame(t(as.matrix(acc.mat[integrate_features_union,str_subset(colnames(acc.mat), pattern = "ATAC_.+-1")]))) %>%
+  mutate_all(as.factor)
+
+test.df <- cbind(acc.df[,intersect(hvg.rna, colnames(acc.df)) ], dpt=dpt.df$dpt_pseudotime[dpt.df$tech=="ATAC"])
+fit.dpt <- lm(dpt ~ ., data=test.df)
+
+fit.coeffs <- fit.dpt$coefficients[2:length(fit.dpt$coefficients)]
+hist(fit.coeffs, breaks = 100)
+which(abs(fit.coeffs) > 0.1)
+anova.dpt <- anova(fit.dpt)
+associated.genes <- rownames(anova.dpt)[which(anova.dpt$`Pr(>F)` < 0.01)]
+
+acc.mat %>% dim()
+
+dpt.bin.acc.mat <- acc.mat[associated.genes, str_subset(colnames(acc.mat), pattern = "ATAC_.+-1")] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell")) %>%
+  left_join(dpt.df) %>%
+  group_by(dpt_bin, gene) %>%
+  summarise(value=sum(value)) %>%
+  pivot_wider(names_from = "dpt_bin", values_from = "value") %>%
+  column_to_rownames('gene') %>%
+  as.matrix()
+
+pheatmap::pheatmap(dpt.bin.acc.mat %>% t() %>% scale() %>% t(), cluster_cols = F, color = viridis::viridis(10))
+  
+
+ggplot(aes(dpt_bin, gene, fill=value)) +
+  geom_tile()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

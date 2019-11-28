@@ -4,12 +4,17 @@
 
 library(Seurat)
 
-HVG_Seurat <- function(sce, nfeatures=2000){
+select_highlyVariable <- function(sce, nfeatures=2000){
   HVGs <- VariableFeatures(FindVariableFeatures(as.Seurat(sce), nfeatures = nfeatures, 
-                                                selection.method="mvp", dispersion.cutoff=c(0.5, 100000), mean.cutoff=c(0.0125, 6)))
-}
+                                                selection.method="mvp", dispersion.cutoff=c(0.5, 10), mean.cutoff=c(0.0125, 6)))
+  HVGs
+  }
 
 
-
+select_highlyCovered <- function(sce, frac_cells=0.1){
+  HCFs <-
+    names(which(Matrix::rowSums(logcounts(sce)) > frac_cells*ncol(sce)))
+  HCFs
+    }
 
 
