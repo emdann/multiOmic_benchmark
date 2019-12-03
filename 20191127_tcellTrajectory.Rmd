@@ -1,0 +1,874 @@
+---
+title: "Pseudotime analysis of T-cells in developing thymus"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(conos)
+library(ggpubr)
+library(tidyverse)
+library(SingleCellExperiment)
+library(chromVAR)
+library(motifmatchr)
+library(BSgenome.Hsapiens.UCSC.hg38)
+# library(monocle3)
+source("~/multiOmic_benchmark/utils.R")
+source("~/multiOmic_benchmark/integrateBenchmark.R")
+source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
+
+## Make output directory
+outdir <- "~/multiOmic_benchmark/report/output/20191127_tcellTrajectory/"
+ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
+```
+
+Based on the results of my benchmark, I set out to align expression and accessibility profiles from the F74 developing thymus dataset to detect changes in accessibility along pseudotime trajectories. While the benchmark was based on the task of label propagation, I here use the two most faithful methods (Seurat CCA and Conos) to achieve a common embedding of ATAC-seq and RNA-seq cells.
+
+Load datasets.
+
+```{r}
+rna.sce <- readRDS("~/my_data/F74_RNA_seurat_processed.RDS")
+atac.sce <- readRDS("~/my_data/F74_ATAC_snapAtac_processed_bgmat.RDS")
+
+## Re-normalize RNA data
+seu.rna <- as.Seurat(rna.sce, counts = "counts")
+seu.rna <- NormalizeData(seu.rna)
+logcounts(rna.sce) <- seu.rna@assays$RNA@data
+
+```
+
+Filter genes with zero variance
+```{r}
+rna.gene.var <- as.matrix(counts(rna.sce)) %>% rowVars()
+atac.gene.var <- as.matrix(counts(atac.sce)) %>% rowVars()
+
+rna.sce <- rna.sce[which(rna.gene.var > 0),]
+atac.sce <- atac.sce[which(atac.gene.var > 0),]
+
+rna.sce; atac.sce
+```
+
+
+## Integration of T cells clusters
+I re-run the integration based on the T cell subset. To select cells from the scATAC dataset, I take the SnapATAC clusters that best correspond to T-cells, based on label transfer.
+
+```{r}
+tcells.sce.atac <- atac.sce[,which(as.numeric(atac.sce$seurat_clusters) %in% c(1:9))]
+
+tcells.rna.ix <- which(rna.sce$annotation %in% c("DN","DP (Q)", "DP (P)", "SP (1)", "SP (2)"))
+tcells.sce.rna <- rna.sce[,tcells.rna.ix]
+
+tcells.sce.list <- list(RNA=tcells.sce.rna, ATAC=tcells.sce.atac)
+
+## Make color palette 4 cell types
+cell.types <- as.character(unique(tcells.sce.rna$annotation))
+cell.type.pal <- brewer.pal(length(cell.types), "Set1") %>% rev() %>% setNames(cell.types)
+```
+
+Next, I select genes on which to perform integration. I take the union of the most variable features in the RNA dataset and the most covered features in the ATAC dataset
+
+```{r}
+hcg.atac <- select_highlyCovered(tcells.sce.list$ATAC, frac_cells = 0.2)
+hvg.rna <- select_highlyVariable(tcells.sce.list$RNA)
+
+seu.rna <- FindVariableFeatures(seu.rna, nfeatures = 2000,
+                                # selection.method = "mvp", dispersion.cutoff=c(0.7, 100), mean.cutoff=c(0.02, 3)
+                                )
+hvg.rna <- VariableFeatures(seu.rna)
+
+VariableFeaturePlot(seu.rna)
+UpSetR::upset(UpSetR::fromList(list(HVG.RNA=hvg.rna, HCG.ATAC=hcg.atac)))
+```
+
+Remove cell cycle genes, that might interfere with pseudotime ordering
+```{r}
+cell_cycle_genes <- read.table("~/annotations/cell_cycle_genes.tsv")$V1
+
+integrate_features_union <- union(hvg.rna, hcg.atac)
+integrate_features_union <- setdiff(integrate_features_union, cell_cycle_genes) 
+
+## Select features in both datasets
+integrate_features_union <- intersect(integrate_features_union, intersect(rownames(tcells.sce.list$ATAC), rownames(tcells.sce.list$RNA))) 
+
+```
+
+#### Visualize T cells in RNA dataset
+```{r}
+tcells.seu.list <- map(tcells.sce.list, ~ as.Seurat(.x))
+tcells.RNA.union <- tcells.seu.list$RNA
+VariableFeatures(tcells.RNA.union) <- integrate_features_union
+tcells.RNA.union <- ScaleData(tcells.RNA.union) %>% RunPCA() %>% RunUMAP(dims=1:40)
+
+DimPlot(tcells.RNA.union, group.by = "annotation", label=TRUE) + ggtitle("RNA - feature union")
+```
+
+Visualize markers 
+```{r, fig.width=15, fig.height=10}
+t.cell.markers <- list(known.markers = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "TRAC", "CD4", "CD8A", "CD8B"),
+                       chemokine.receptors = c("CCR9", "CCR7"),
+                       tcr.activation = c("CD5", "CD27"),
+                       proliferation=c("PCNA", "CDK1", "MKI67"),
+                       cyclin.D = c("CCND2", "CCND3"),
+                       recombination=c("RAG1", "RAG2"),
+                       apoptosis=c("HRK","BMF", "TP53INP1"),
+                       stage.markers = c("ST18", "HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "SATB1", "TOX2")
+                       ) 
+# FeaturePlot(tcells.RNA.ref, features = t.cell.markers$known.markers, cols = viridis::viridis(n=10))
+FeaturePlot(tcells.RNA.union, features = t.cell.markers$known.markers, cols = viridis::viridis(n=10))
+```
+
+#### Visualize T cells in ATAC dataset
+
+Colored by clusters called with SnapATAC
+
+```{r}
+tcells.ATAC.union <- tcells.seu.list$ATAC
+# tcells.ATAC.union <- NormalizeData(tcells.ATAC.union)
+VariableFeatures(tcells.ATAC.union) <- integrate_features_union
+tcells.ATAC.union <- RunLSI(tcells.ATAC.union, n=50, scale.max = NULL)
+tcells.ATAC.union <- RunUMAP(tcells.ATAC.union, reduction = "lsi", dims = 1:50)
+
+DimPlot(tcells.ATAC.union, reduction = "umap", group.by = "seurat_clusters", label = TRUE) + ggtitle("ATAC gmat")
+```
+
+#### Run CCA 
+
+Makes imputed transcriptome profile for the ATAC-seq cells to allow co-embedding
+
+```{r, fig.width=12, fig.height=5}
+sce.list <- tcells.sce.list
+reference = "RNA"
+query = "ATAC" 
+seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
+seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
+## Scale data
+seurat.list <- map(seurat.list, ~ ScaleData(.x))
+## Calculate CCA anchors
+transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], 
+                                        query = seurat.list[[query]],
+                                        features = integrate_features_union, 
+                                        reduction = "cca")
+
+## Impute expression profiles for ATAC cells (for all genes, not just integration features)
+refdata <- GetAssayData(seurat.list$RNA, assay = "RNA", slot = "data")
+imputation <- TransferData(anchorset = transfer.anchors, refdata = refdata, weight.reduction = seurat.list$ATAC[["LSI"]])
+
+## Merge datasets and co-embed
+seurat.list$ATAC[["RNA"]] <- imputation
+coembed <- merge(x = seurat.list$RNA, y = seurat.list$ATAC)
+
+coembed <- ScaleData(coembed, features = integrate_features_union, do.scale = FALSE)
+coembed <- RunPCA(coembed, features = integrate_features_union, verbose = FALSE)
+coembed <- RunUMAP(coembed, dims = 1:30)
+
+coembed <- AddMetaData(coembed, metadata = ifelse(colnames(coembed) %in% colnames(seurat.list[[reference]]), reference, query), col.name = "tech")
+
+DimPlot(coembed, group.by = c('tech', "annotation"))
+```
+
+<!-- Run Conos -->
+<!-- ```{r} -->
+<!-- data.processed <- map(sce.list, ~ as.Seurat(.x))  -->
+<!-- VariableFeatures(data.processed[[reference]]) <- integrate_features_union -->
+<!-- VariableFeatures(data.processed[[query]]) <- integrate_features_union -->
+<!-- data.processed <- map(data.processed, ~ ScaleData(.x) %>% RunPCA(dims=1:30)) -->
+<!-- l.con <- Conos$new(data.processed,n.cores=30) -->
+<!-- l.con$buildGraph(k=15,k.self=5,k.self.weigh=0.01,ncomps=30,n.odgenes=5e3,space='PCA')  -->
+
+<!-- l.con$findCommunities(resolution=1.5) -->
+<!-- l.con$embedGraph(alpha=1/2) -->
+
+<!-- conos.out <- conos.model$model -->
+<!-- l.con$plotGraph(color.by = "sample") -->
+
+<!-- geneX <- seurat.list[[reference]]@assays$RNA@scale.data[3,] -->
+<!-- geneX <- setNames(annotation[,1], rownames(annotation)) -->
+<!-- new.label.probabilities <- l.con$propagateLabels(labels = geneX, verbose = T, fixed.initial.labels=T) -->
+<!-- hist(new.label.probabilities) -->
+<!-- l.con$correctGenes(genes = integrate_features_union, count.matrix = Matrix(seurat.list$ATAC@assays$ATAC@data)) -->
+
+<!-- ``` -->
+
+```{r, fig.height=20, fig.width=9}
+FeaturePlot(coembed, features = t.cell.markers$stage.markers, split.by = "tech", cols = viridis::viridis(n=100)) + ggtitle("Stage Markers")
+```
+```{r, fig.height=25, fig.width=9}
+FeaturePlot(coembed, features = t.cell.markers$known.markers, split.by = "tech", slot = "data", cols = viridis::viridis(n=100))
+```
+```{r}
+FeaturePlot(coembed, features = t.cell.markers$recombination, split.by = "tech", slot = "data", cols = viridis::viridis(n=100)) 
+```
+
+#### Transfer labels on ATAC dataset
+```{r, fig.width=10, fig.height=5}
+celltype.predictions <- TransferData(anchorset = transfer.anchors, 
+                                     refdata = seurat.list[[reference]]$annotation, 
+                                     weight.reduction = seurat.list$ATAC[["LSI"]])
+
+coembed <- AddMetaData(coembed, metadata = celltype.predictions)
+coembed@meta.data %<>%
+  rownames_to_column() %>%
+  dplyr::mutate(annotation=ifelse(is.na(predicted.id) , annotation, NA)) %>%
+  column_to_rownames()
+
+coembed@meta.data <-
+  coembed@meta.data %>%
+  rownames_to_column() %>%
+  dplyr::mutate(annotation=ifelse(is.na(annotation) & prediction.score.max > 0.5, predicted.id, annotation)) %>%
+  dplyr::mutate(annotation=ifelse(annotation=="SP (2)", NA, annotation)) %>%
+  column_to_rownames()
+CombinePlots(
+  list(DimPlot(coembed, group.by = c("predicted.id"), cols = cell.type.pal) + ggtitle("prediction"),
+  DimPlot(coembed, group.by = c("annotation"), cols = cell.type.pal) + ggtitle("Original + prediction")),
+  legend = "top"
+  )
+```
+```{r}
+FeaturePlot(coembed, features = "prediction.score.max", cells = which(coembed$tech=="ATAC")) + scale_color_viridis_c()
+```
+
+
+### Run Pseudotime analysis 
+
+Identify cell of origin among the DN cells based on expression of IGLL1 and CD34
+
+```{r, fig.height=10, fig.width=10}
+FeaturePlot(coembed, features = c("IGLL1", "CD34"), split.by = "tech", slot = "data", cols = viridis::viridis(n=100))
+```
+```{r}
+cell.oo <-
+  coembed@meta.data %>% 
+  rownames_to_column("cell") %>%
+  mutate(IGLL1=coembed@assays$RNA@counts["IGLL1",cell]) %>%
+  select(cell, annotation, IGLL1) %>%
+  arrange(-IGLL1) %>%
+  filter(annotation=="DN") %>%
+  top_n(1, IGLL1) %>%
+  pull(cell)
+
+coembed@reductions$umap@cell.embeddings %>%
+  as.tibble(rownames="cell") %>%
+  mutate(cell.oo = ifelse(cell %in% cell.oo, T, F)) %>%
+  ggplot(aes(UMAP_1, UMAP_2)) +
+  geom_point(color="grey50") +
+  geom_point(data=. %>% filter(cell.oo),color='red') +
+  ggrepel::geom_text_repel(data=. %>% filter(cell.oo), aes(label="cell of origin"), color='red') +
+  theme_cowplot() 
+
+coembed <- AddMetaData(coembed, ifelse(colnames(coembed)==cell.oo, TRUE, FALSE), col.name = "iroot_cell")
+
+  
+```
+
+
+```{r}
+merged.sce <- SingleCellExperiment(list(counts=coembed@assays$RNA@counts, logcounts=coembed@assays$RNA@data), colData=coembed@meta.data[, c("annotation", "tech", "iroot_cell")],
+                     reducedDims = map(coembed@reductions, ~ .x@cell.embeddings))
+
+saveRDS(object = merged.sce, "~/my_data/Tcells_CCA_integration_20191203.RDS")
+saveRDS(object = integrate_features_union, "~/my_data/intFeatures_Tcells_CCA_integration_20191203.RDS")
+```
+
+I infer pseudotime using the diffusion pseudotime algorithm as implemented in scanpy. Making an R/reticulate wrapper for this function would be nice, but for now, see `multiOmic_benchmark/DPT_tcells.ipynb`.
+
+Read scanpy output and save in R object.
+```{r}
+dpt <- read.csv('~/my_data/Tcells_CCA_integration_20191127_scanpy_dpt.csv') %>%
+  select(X, dpt_pseudotime)
+
+coembed <- AddMetaData(coembed, column_to_rownames(dpt, 'X'))
+saveRDS(coembed, "~/my_data/Tcells_CCA_integration_seurat_20191203.Rmd")
+coembed <- readRDS("~/my_data/Tcells_CCA_integration_seurat_20191203.Rmd")
+```
+
+
+Visualize pseudotime
+
+```{r, fig.width=10}
+FeaturePlot(coembed, reduction = "umap", feature = "dpt_pseudotime", split.by = "tech", col=viridis::viridis(10)) 
+```
+
+Save figure
+```{r, fig.width=10}
+coembed.umaps.pl <- plot_grid(
+  DimPlot(coembed, group.by = c("tech")) + theme(legend.position = "top"),
+  DimPlot(coembed, group.by = c("annotation"), cols = cell.type.pal, label = TRUE, label.size = 5) + theme(legend.position = "none"),
+  FeaturePlot(coembed, reduction = "umap", feature = "dpt_pseudotime") + scale_color_viridis_c(name="Diffusion\npseudotime") + ggtitle(""),
+  nrow=1, ncol=3, rel_widths = c(1,1,1.2),
+  labels = c("A", "B", "C")
+) 
+
+coembed.umaps.pl +
+  ggsave(paste0(outdir, "coembed_umaps.png"), width=12, height = 4)
+```
+
+
+
+```{r, fig.height=8, fig.width=10}
+coembed@meta.data %>%
+  dplyr::mutate(`DPT rank`=dense_rank(dpt_pseudotime)) %>%
+  ggplot(aes(dpt_pseudotime)) +
+  geom_histogram(aes(fill=annotation), bins=50) +
+  facet_grid(annotation~tech, scales="free_y") +
+  theme_bw(base_size = 16) +
+  scale_fill_manual(values = cell.type.pal)
+
+```
+
+Check expression of markers along pseudotime
+```{r, message=FALSE, warning=FALSE, fig.width=14, fig.height=4}
+coembed@assays$RNA@data[t.cell.markers$known.markers, ] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell")) %>%
+  left_join(coembed@meta.data[,"dpt_pseudotime", drop=F] %>% rownames_to_column("cell")) %>%
+  mutate(pseudotime.rank=dense_rank(dpt_pseudotime)) %>%
+  group_by(gene) %>%
+  arrange(pseudotime.rank) %>%
+  # mutate(value=(value-min(value))/max(value)-min(value)) %>%
+  mutate(value=zoo::rollmean(value, k=5, fill=NA)) %>% 
+  # mutate(value=(value-mean(value))/sd(value)) %>%
+  ungroup() %>%
+  mutate(gene=factor(gene, levels=rev(unique(gene)))) %>%
+  ggplot(aes(pseudotime.rank, gene, fill=value)) +
+  geom_tile() +
+  scale_fill_viridis_c(name="log expression") +
+  theme_bw(base_size = 16) +
+  theme(panel.border = element_blank(), panel.grid = element_blank())
+```
+
+Bin pseudotime and visualize cell type composition
+
+```{r, fig.width=15, fig.height=4}
+dpt.df <- 
+  coembed@meta.data %>%
+  rownames_to_column("cell") %>%
+  dplyr::mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
+  mutate(dpt_bin=cut(dpt_rank, breaks = 100)) %>%
+  mutate(dpt_bin=as.numeric(dpt_bin)) %>%
+  select(cell,tech, annotation, prediction.score.max, dpt_bin, dpt_pseudotime, dpt_rank)
+
+cell.type.pl <- dpt.df %>%
+  ggplot(aes(dpt_bin, fill = annotation)) +
+  # geom_histogram(bins=100) +
+  geom_bar() +
+  scale_fill_manual(values=cell.type.pal, na.value="grey50") +
+  facet_grid(tech~., scales="free_y") +
+  xlab("Pseudotime bin") +
+  theme_bw(base_size = 16)
+
+cell.type.pl
+```
+
+Correlation between global accessibility and pseudotime ordering.
+
+```{r, fig.width=15, fig.height=8}
+snap.out <- readRDS(file = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
+# atac.dpt.df <- 
+#   coembed@meta.data %>%
+#   rownames_to_column("cell") %>%
+#   filter(tech=="ATAC") %>%
+#   # group_by(tech) %>%
+#   dplyr::mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
+#   mutate(dpt_bin=cut(dpt_rank, breaks = 100)) %>%
+#   mutate(dpt_bin=as.numeric(dpt_bin)) %>%
+#   # ungroup() %>%
+#   select(cell,tech, annotation, prediction.score.max, dpt_bin, dpt_pseudotime)
+
+groups <- dpt.df[dpt.df$tech=="ATAC", c("cell", "dpt_bin")]
+bmat <- snap.out@bmat[str_remove(groups$cell, "ATAC_"),]
+frac.accessible <- rowSums(bmat)/ncol(bmat)
+acc.fraction.pl <- groups %>%
+  mutate(frac_accessible=frac.accessible[str_remove(cell, "ATAC_")]) %>%
+  ggplot(aes(dpt_bin, frac_accessible)) +
+  geom_boxplot(aes(group=as.factor(dpt_bin)), outlier.alpha = 0.3, outlier.size = 0.7) +
+  # geom_jitter(alpha=0.1) +
+  xlab("Pseudotime bin") +
+  ylab("Fraction of accessible bins") +
+  facet_grid('ATAC'~.) +
+  theme_bw(base_size = 16) 
+  
+dpt.pl <- plot_grid(cell.type.pl + theme(legend.position="top", axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank()), 
+          acc.fraction.pl, 
+          align = "v", ncol=1, nrow=2, axis="l")
+
+dpt.pl +
+  ggsave(paste0(outdir, "DPT_bins.png"), width=10, height = 7)
+```
+
+
+<!-- Viz markers -->
+<!-- ```{r} -->
+<!-- acc.mat <- coembed@assays$ATAC@data -->
+<!-- markers.acc <- acc.mat[intersect(c(t.cell.markers$known.markers, t.cell.markers$chemokine.receptors, t.cell.markers$recombination), rownames(acc.mat)),, drop=F] -->
+
+<!-- markers.df <- data.frame(t(as.matrix(markers.acc[,dpt.df$cell[dpt.df$tech=="ATAC"]]))) %>% -->
+<!--   rownames_to_column("cell") %>% -->
+<!--   pivot_longer(cols = rownames(markers.acc), names_to = "marker.gene", values_to = "accessibility") -->
+
+<!-- annotation.hm <- atac.dpt.df %>% -->
+<!--   group_by(dpt_bin, annotation) %>% -->
+<!--   summarise(n=n()) %>% -->
+<!--   ggplot(aes(dpt_bin, annotation)) + -->
+<!--   geom_tile(aes(alpha=n, fill=annotation))  + -->
+<!--   theme_classic(base_size = 16) + -->
+<!--   scale_fill_manual(values=cell.type.pal, na.value="grey50") + -->
+<!--   guides(fill='none', alpha='none') + -->
+<!--   theme(axis.line = element_blank(), axis.ticks = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank()) -->
+
+<!-- markers.hm <- atac.dpt.df %>% -->
+<!--   full_join(markers.df) %>% -->
+<!--   group_by(dpt_bin, marker.gene) %>% -->
+<!--   summarise(frac_accessible=sum(accessibility)/n()) %>% -->
+<!--   ungroup() %>% -->
+<!--   mutate(marker.gene=factor(marker.gene, levels = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "CCR9","CCR7", "RAG1", "RAG2", "TRAC", "CD4", "CD8A", "CD8B"))) %>% -->
+<!--   mutate(marker.gene=factor(marker.gene, levels = rev(levels(marker.gene)))) %>% -->
+<!--   group_by(marker.gene) %>% -->
+<!--   mutate(frac_accessible=(frac_accessible - min(frac_accessible))/max(frac_accessible) - min(frac_accessible)) %>% -->
+<!--   ggplot(aes(dpt_bin, marker.gene, fill=frac_accessible)) +  -->
+<!--   geom_tile() + -->
+<!--   scale_fill_viridis_c(name="Frac.cells") + -->
+<!--   xlab("Pseudotime bin") + -->
+<!--   theme_classic(base_size = 16) + -->
+<!--   theme(axis.line = element_blank(), axis.ticks = element_blank(), axis.text.x = element_blank()) -->
+
+<!-- leg <- get_legend(markers.hm) -->
+<!-- gr1 <- plot_grid(annotation.hm, markers.hm + theme(legend.position = "none"), nrow=2, rel_heights = c(1,2), align = "v") -->
+<!-- gr2 <- plot_grid(ggplot() +  theme_void(),leg, nrow=2, rel_heights = c(1,2)) -->
+<!-- plot_grid(gr1, gr2, rel_widths = c(3,1)) -->
+<!-- ``` -->
+
+## Motif analysis 
+
+I initially wanted to call peaks from SnapATAC clusters, then build a cell x peak matrix on those detected peaks, but SnapATAC/MACS2 don't seem to work. 
+
+<!-- ---- -->
+<!-- **This doesn't seem to work** -->
+<!-- Call peaks  -->
+<!-- ```{r} -->
+<!-- ## Call peaks on clusters -->
+<!-- clusters.sel <- unique(tcells.sce.atac$seurat_clusters) -->
+<!-- peaks.ls = mclapply(seq(clusters.sel), function(i){ -->
+<!--   print(paste("cluster", clusters.sel[i])) -->
+<!--   peaks = runMACS( -->
+<!--       obj=snap.out[which(snap.out@metaData$barcode %in% colnames(tcells.sce.atac)[tcells.sce.atac$seurat_clusters==clusters.sel[i]]),],  -->
+<!--       output.prefix=paste0("Tcells_F74_cluster", clusters.sel[i]), -->
+<!--       path.to.snaptools="/opt/conda/bin/snaptools", -->
+<!--       path.to.macs="/opt/conda/bin/macs2", -->
+<!--       gsize="hs", # mm, hs, etc -->
+<!--       buffer.size=500,  -->
+<!--       num.cores=3, -->
+<!--       macs.options="--nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR", -->
+<!--       tmp.folder=tempdir() -->
+<!--  ) -->
+<!-- peaks -->
+<!-- }, mc.cores=5) -->
+
+<!-- peaks.names = list.files("~/my_data/Tcells_peaks/", pattern="narrowPeak", full.names = T) -->
+<!-- peak.gr.ls = lapply(peaks.names, function(x){ -->
+<!--   peak.df = read.table(x) -->
+<!--   GRanges(str_remove_all(peak.df[,1], "b'|'"), IRanges(peak.df[,2], peak.df[,3])) -->
+<!-- }) -->
+<!-- peak.gr = reduce(Reduce(c, peak.gr.ls)) -->
+
+<!-- ## Make cell by peak matrix (not run here) -->
+<!-- peaks.df = as.data.frame(peak.gr)[,1:3]; -->
+<!-- write.table(peaks.df,file = "~/my_data/Tcells_peaks/peaks.combined.bed",append=FALSE, -->
+<!-- 		quote= FALSE,sep="\t", eol = "\n", na = "NA", dec = ".",  -->
+<!-- 		row.names = FALSE, col.names = FALSE, qmethod = c("escape", "double"), -->
+<!-- 		fileEncoding = "") -->
+<!-- ``` -->
+
+<!-- Making common peak reference with snaptools. In terminal -->
+<!-- ``` -->
+<!-- snaptools snap-add-pmat --snap-file ~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snap --peak-file peaks.combined.bed  -->
+<!-- ``` -->
+
+<!-- Add pmat to snap object -->
+<!-- ```{r} -->
+<!-- snap.out <- createPmat(snap.out, peak.gr, do.par = T, num.cores = 10) -->
+<!-- ``` -->
+<!-- --- -->
+
+Alternative: load peak matrix from cellranger and add to snap object
+```{r}
+filt.peaks <- Read10X_h5("~/my_data/filtered_peak_bc_matrix.h5")
+peaks.mat <- str_split(rownames(filt.peaks), pattern = ":|-") %>% map(rbind) %>% purrr::reduce(rbind)
+peaks.gr <- GRanges(peaks.mat[,1], IRanges(as.numeric(peaks.mat[,2]), as.numeric(peaks.mat[,3])))
+snap.pmat <- createSnapFromPmat(mat=t(filt.peaks[,snap.out@barcode]), barcodes=snap.out@barcode, peaks=peaks.gr)
+snap.pmat
+```
+
+Calculating deviations in TF accessibility using ChromVAR. This is a measure of how much is motif accessibility in each cell is enriched compared to all the cells and general cell coverage. While SnapATAC has an wrapper around ChromVAR that outputs the deviation matrix, I just take the code from that function and run every step separately to keep the useful outputs and statistics of chromVAR.
+
+```{r}
+snap.pmat = makeBinary(snap.pmat, "pmat")
+
+obj = snap.pmat
+input.mat="pmat"
+min.count=10
+species="Homo sapiens"
+genome=BSgenome.Hsapiens.UCSC.hg38
+
+data.use = obj@pmat
+peak.use = obj@peak
+
+ncell = nrow(data.use)
+
+idy = which(Matrix::colSums(data.use) >= min.count)
+data.use = data.use[,idy,dropping=TRUE]
+	
+peak.use = peak.use[idy]
+
+rse <- SummarizedExperiment(
+		assays = list(counts = t(data.use)), 
+				 rowRanges = peak.use, 
+				 colData = DataFrame(Cell_Type=1:nrow(data.use), depth=Matrix::rowSums(data.use))
+	);
+rse <- addGCBias(rse, genome = genome);
+motifs <- getJasparMotifs(collection = "CORE", species=species);
+motif_mm <- matchMotifs(motifs, rse, genome = genome);
+dev <- computeDeviations(object = rse, annotations = motif_mm);
+var <- computeVariability(dev)
+```
+
+Save
+```{r}
+rowData(dev) %<>%
+  as.tibble(rownames="motif") %>%
+  full_join(var) %>%
+  column_to_rownames('motif') %>%
+  DataFrame()
+
+saveRDS(dev, "~/my_data/Tcells_peaks/Tcells_chromVarOutput.RDS")  
+```
+
+Visualize deviation scores of the most variable motifs, ordered in pseudotime.
+
+```{r, fig.width=15, fig.height=10}
+sample_dpt_bins.df <- dpt.df %>%
+  mutate(cell=str_remove(cell, "^ATAC_")) %>%
+  filter(tech=="ATAC") %>%
+  arrange(dpt_pseudotime)
+
+motif.topvar <- var %>% rownames_to_column("motif") %>% top_n(50,variability) %>% pull(motif)
+tf.topvar <- motif.topvar %>% str_remove(".+_") %>% str_remove("\\(.+|:.+")
+mmat.topvar <- dev@assays$data$z[motif.topvar,sample_dpt_bins.df$cell]
+
+rownames(mmat.topvar) <- tf.topvar
+smooth.mmat <- apply(mmat.topvar, 1, function(x) zoo::rollmean(x, k=30)) %>% t() 
+
+png(paste0(outdir, "chromVAR_motif_heatmap.png"), width=1000, height = 900)
+smooth.mmat %>%
+  # mmat.topvar[,sample_dpt_bins.df$cell] %>%
+  pheatmap::pheatmap(show_colnames = F, cluster_cols = F, clustering_distance_rows = "correlation",
+                     annotation_col = sample_dpt_bins.df[,c("cell", "annotation", "dpt_pseudotime")] %>% column_to_rownames("cell"), 
+                     annotation_colors = list(annotation=cell.type.pal, dpt_pseudotime=viridis::viridis(100)), fontsize = 18, fontsize_row = 12,
+                     # color = colorRampPalette(rev(brewer.pal(n = 7, name ="Spectral")))(100))
+                     breaks=seq(-3,3, length.out = 100)
+  )
+dev.off()
+```
+
+```{r, fig.width=10}
+dpt.order <-
+  dpt.df %>%
+  filter(tech=="RNA") %>%
+  arrange(dpt_pseudotime) 
+
+coembed <- ScaleData(coembed, do.scale=TRUE)
+gexmat.topvar <- coembed@assays$RNA@scale.data[tf.topvar[which(tf.topvar %in% rownames(coembed@assays$RNA@scale.data))],dpt.order$cell]
+smooth.gexmat <- apply(gexmat.topvar, 1, function(x) zoo::rollmean(x, k=30)) %>% t() 
+smooth.gexmat %>%
+  # t() %>% scale() %>% t() %>%
+  pheatmap::pheatmap(show_colnames = F, cluster_rows = T, cluster_cols = F, 
+                     annotation_col = dpt.order[,c("cell", "annotation", "dpt_pseudotime")] %>% column_to_rownames("cell"),
+                     annotation_colors = list(annotation=cell.type.pal, dpt_pseudotime=viridis::viridis(100)), fontsize = 18, fontsize_row = 12,
+                     breaks=seq(-2,2, length.out = 100)
+  )
+```
+
+Compare motif accessibility trend with gene expression trend along pseudotime.
+
+```{r}
+counts.topvar <- coembed@assays$RNA@data[tf.topvar[which(tf.topvar %in% rownames(coembed@assays$RNA@data))],dpt.order$cell]
+gex.df <- 
+  reshape2::melt(as.matrix(counts.topvar), varnames=c("gene", "cell")) %>% 
+  # rowid_to_column("dpt_order") %>%
+  mutate(data="Gene expression")
+mmat.df <- reshape2::melt(mmat.topvar, varnames=c("gene", "cell")) %>%
+  # rowid_to_column("dpt_order") %>%
+  mutate(cell=str_c("ATAC_", cell)) %>%
+  mutate(data="Motif deviation")
+
+plot.tfs <- c("RUNX3", "RUNX2")
+plot.tfs <- function(plot.tfs){
+  bind_rows(gex.df, mmat.df) %>%
+  left_join(dpt.df[, c("cell", "dpt_pseudotime", "annotation")], by="cell") %>%
+  mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
+  drop_na(dpt_pseudotime) %>%
+    mutate(data=factor(data, levels=c("Gene expression", "smooth", "Motif deviation"))) %>%
+  filter(gene %in% plot.tfs) %>%
+  ggplot(aes(dpt_rank, value, color=data)) +
+  # geom_point(data=. %>% filter(data!="smooth"), aes(color=annotation), size=0.7, alpha=0.3) +
+  geom_smooth( method="loess",span=0.2) +
+  facet_grid(data~gene, scales="free") +
+  xlab("Pseudotime rank") +
+  theme_bw(base_size = 16) 
+}
+tfs <- c("JUN", "FOSL2", "FOSL1", "FOS")
+
+pdf(paste0(outdir, "TF_plots.pdf"), width = 8, height = 5)
+for (tf in tf.topvar) {
+  print(plot.tfs(tf))
+}
+dev.off()
+
+map(list("JUN", "ELK3", "RUNX2", "REL", "FOS", "ETV6"), ~ plot.tfs(.x) + ggsave(paste0(outdir, paste0('TF_plot_',.x,".png")), width = 8, height=5))
+```
+
+
+
+<!-- ```{r, fig.width=14, fig.height=7} -->
+<!-- bind_rows(access.df, genex.df) %>% -->
+<!--   filter(gene %in% c("SPI1", "RUNX2","RUNX3", 'TCF7L2', "E2F4")) %>% -->
+<!--     filter(!str_detect(cell, "^ATAC_") | tech=="ATAC") %>% -->
+<!--   # group_by(tech, gene) %>% -->
+<!--   # mutate(value=scale(value)) %>% -->
+<!--   # ungroup() %>% -->
+<!--   # drop_na() %>% -->
+<!-- # filter(tech=="RNA") %>% -->
+<!--   drop_na(dpt_bin) %>% -->
+<!--   ggplot(aes(dpt_bin, value)) + -->
+<!--   geom_point(aes(color=annotation), alpha=0.2) + -->
+<!--   facet_grid(tech~gene, scales = "free_y") + -->
+<!--   geom_smooth() -->
+
+
+<!-- ``` -->
+
+<!-- ```{r, fig.width=14, fig.height=7} -->
+<!-- bind_rows(access.df, genex.df) %>% -->
+<!--   filter(gene %in% c("ELK3", "JUNB", "FOS")) %>% -->
+<!--   filter(!str_detect(cell, "^ATAC_") | tech=="ATAC") %>% -->
+<!--   # group_by(tech, gene) %>% -->
+<!--   # mutate(value=scale(value)) %>% -->
+<!--   # ungroup() %>% -->
+<!--   drop_na(dpt_bin) %>% -->
+<!--   ggplot(aes(dpt_bin, value)) + -->
+<!--   geom_point(aes(color=annotation), alpha=0.2) + -->
+<!--   facet_grid(tech~gene, scales = "free_y") + -->
+<!--   geom_smooth() + -->
+<!--   scale_color_manual(values=cell.type.pal) -->
+
+
+<!-- ``` -->
+
+<!-- ## Pseudotime lag between DP(Q) in accessibility and gene expression -->
+<!-- The DP (Q) cluster in the ATAC cells is scored with high confidence -->
+<!-- ```{r} -->
+<!-- dpq.coembed <- coembed[,which(coembed$annotation=="DP (Q)")] -->
+
+<!-- FeaturePlot(coembed, feature="prediction.score.max") -->
+<!-- DimPlot(coembed, group.by ="annotation", split.by = "tech") -->
+
+<!-- ``` -->
+
+<!-- ```{r, fig.width=10, fig.height=6} -->
+<!-- cca.obj <- transfer.anchors@object.list[[1]] -->
+<!-- new.metadata <- coembed@meta.data[,c("annotation", "tech"), drop=F] %>% rownames_to_column() %>% -->
+<!--   mutate(rowname=ifelse(str_detect(rowname, "^RNA"), str_c(rowname, "_reference"), str_c(rowname, "_query"))) %>% -->
+<!--   column_to_rownames() -->
+<!-- cca.obj <- AddMetaData(cca.obj, new.metadata) -->
+<!-- cca.obj@meta.data -->
+<!-- DimPlot(cca.obj, group.by=c("annotation","tech"), reduction = "cca", dims = 1:2) -->
+<!-- DimPlot(cca.obj, group.by=c("annotation","tech"), reduction = "cca", dims = 3:4) -->
+<!-- DimPlot(cca.obj, group.by=c("annotation","tech"), reduction = "cca", dims = 5:6) -->
+<!-- ``` -->
+
+<!-- ```{r, fig.height=18, fig.width=18} -->
+<!-- top.cc.genes <- cca.obj@reductions$cca.l2@feature.loadings %>%  -->
+<!--   reshape2::melt(varnames=c("gene", "CC")) %>% -->
+<!--   group_by(CC) %>% -->
+<!--   mutate(rank=rank(abs(value))) %>% -->
+<!--   ungroup() %>% -->
+<!--   filter(rank > (max(rank)-10)) %>% -->
+<!--   pull(gene) %>% -->
+<!--   unique() -->
+
+<!-- atac.mat <- coembed@assays$ATAC@data -->
+<!-- rna.mat <- coembed@assays$RNA@data -->
+
+<!-- atac.mat[gene.oi,] %>% -->
+<!--   {.[,which(apply(.,2, function(x) sum(x)!=0))]} %>% -->
+<!--   pheatmap::pheatmap(show_colnames=F, clustering_distance_rows = "correlation", -->
+<!--                       annotation_col = coembed@meta.data[,"annotation", drop=F] -->
+<!--                      ) -->
+<!-- ``` -->
+<!-- ```{r, fig.height=10, fig.width=10} -->
+<!-- dpq.cells <- rownames(new.metadata[new.metadata$annotation=="DP (Q)",]) -->
+<!-- dpq.query.ix <- which(transfer.anchors@query.cells %in% dpq.cells) -->
+<!-- dpq.ref.ix <- which(transfer.anchors@reference.cells %in% dpq.cells) -->
+<!-- new.metadata %>% -->
+<!--   rownames_to_column() %>% -->
+<!--   filter(tech=="ATAC") -->
+<!-- transfer.anchors@anchors %>% -->
+<!--   as.tibble() %>% -->
+<!--   mutate(cell1=transfer.anchors@reference.cells[cell1]) %>% -->
+<!--   mutate(cell2=transfer.anchors@query.cells[cell2]) %>% -->
+<!--   mutate(anno.cell1 = new.metadata[cell1, 'annotation']) %>% -->
+<!--   mutate(anno.cell2 = new.metadata[cell2, 'annotation']) %>% -->
+<!--   # spread(cell2, score)  -->
+<!--   ggplot(aes(score)) + -->
+<!--   geom_histogram() + -->
+<!--   xlim(0,1) + -->
+<!--   # geom_tile() + -->
+<!--   facet_grid(anno.cell1~anno.cell2, scales="free_y", space="free", labeller = "label_both")  -->
+<!-- ``` -->
+
+<!-- <!-- show anchor mat --> -->
+
+<!-- <!-- ```{r, fig.width=10, fig.height=10} --> -->
+<!-- <!-- anchor.mat <- transfer.anchors@anchors %>% --> -->
+<!-- <!--   as.tibble() %>% --> -->
+<!-- <!--   mutate(cell1=transfer.anchors@reference.cells[cell1]) %>% --> -->
+<!-- <!--   mutate(cell2=transfer.anchors@query.cells[cell2]) %>% --> -->
+<!-- <!--   spread(cell2, score) %>% --> -->
+<!-- <!--   column_to_rownames('cell1') %>% --> -->
+<!-- <!--   as.matrix() --> -->
+
+<!-- <!-- anchor.mat %>%  --> -->
+<!-- <!--   ifelse(is.na(.), 0, .) %>% --> -->
+<!-- <!--   pheatmap::pheatmap(show_rownames = F, show_colnames = F, --> -->
+<!-- <!--                      annotation_col = new.metadata[,'annotation', drop=F], --> -->
+<!-- <!--                      annotation_row = new.metadata[,'annotation', drop=F], --> -->
+<!-- <!--                      annotation_colors = list(annotation=cell.type.pal)) --> -->
+<!-- <!-- ``` --> -->
+
+<!-- ```{r} -->
+<!-- pred.scores <- colnames(coembed@meta.data) %>% str_subset("prediction.score")  -->
+<!-- coembed@meta.data %>% -->
+<!--   filter(tech=="ATAC") %>% -->
+<!--   select(c("annotation", pred.scores)) %>% -->
+<!--   pivot_longer(cols=-annotation, names_to = "class") %>% -->
+<!--   mutate(class=str_remove(class, "prediction.score.")) %>% -->
+<!--   filter(class!="max") %>% -->
+<!--   ggplot(aes(annotation, value, fill=class)) + -->
+<!--   geom_boxplot() -->
+<!-- ``` -->
+
+<!-- ```{r, fig.width=10} -->
+<!-- DefaultAssay(dpq.coembed) <- "RNA" -->
+<!-- dpq.coembed <- ScaleData(dpq.coembed, features = integrate_features_union) -->
+<!-- dpq.coembed <- RunPCA(dpq.coembed, features = integrate_features_union) -->
+
+<!-- plot_grid( -->
+<!--   DimPlot(dpq.coembed, group.by = c("tech"), reduction = "pca") , -->
+<!--   FeaturePlot(dpq.coembed, feature="dpt_pseudotime", reduction = "pca") + scale_color_viridis_c()  -->
+<!--   ) -->
+<!-- ``` -->
+<!-- ```{r} -->
+<!-- topPC1.df <- dpq.coembed@reductions$pca@feature.loadings[,1, drop=F] %>% -->
+<!--   as.tibble(rownames="gene") %>% -->
+<!--   # arrange(PC_1) -->
+<!--   mutate(rank= dense_rank(PC_1)) %>% -->
+<!--   mutate(label=ifelse(rank > (n()-10) | rank < (10) , gene,NA))  -->
+
+<!-- topPC1.df %>% -->
+<!--   ggplot(aes(rank, PC_1)) + -->
+<!--   geom_point()+ -->
+<!--   ggrepel::geom_text_repel(data=. %>% filter(!is.na(label)), aes(label=label)) -->
+<!-- ``` -->
+<!-- ```{r, fig.height=8, fig.width=8} -->
+<!-- FeaturePlot(dpq.coembed, feature=unique(topPC1.df$label)[1:6], reduction = "umap")  -->
+<!--   scale_color_viridis_c() -->
+<!-- ``` -->
+
+<!-- ```{r, fig.width=10, fig.height=4} -->
+<!-- cca.obj@reductions$cca@feature.loadings %>% -->
+<!--   reshape2 -->
+<!--   pheatmap::pheatmap() -->
+<!-- DimHeatmap(cca.obj, reduction = "cca", assays = "ATAC") -->
+<!-- FeaturePlot(cca.obj, reduction="cca", feature=gene.oi) -->
+
+<!-- ``` -->
+
+
+<!-- <!-- Differentially expressed genes between RNA and ATAC DP(Q) cells --> -->
+<!-- <!-- ```{r} --> -->
+<!-- <!-- VariableFeatures(coembed) <- integrate_features_union --> -->
+<!-- <!-- dpq.diff <- FindMarkers(dpq.coembed, features=VariableFeatures(coembed),  --> -->
+<!-- <!--                         group.by = "tech", ident.1 = "RNA", ident.2 = "ATAC") --> -->
+
+<!-- <!-- top.diff <- rownames(dpq.diff[1:10,]) --> -->
+<!-- <!-- FeaturePlot(coembed, features = top.diff[1:3], split.by = "tech", cols = viridis::viridis(n=100), slot = "scale.data", max.cutoff = 10) + ggtitle("Stage Markers") --> -->
+<!-- <!-- ``` --> -->
+<!-- <!-- ```{r} --> -->
+
+<!-- <!-- VlnPlot(coembed[, coembed$tech=="RNA"], features = top.diff[1], group.by = "annotation", pt.size = 0.1, split.by = 'tech') --> -->
+<!-- <!-- VlnPlot(coembed, features = c("AQP3", "TRBC2"), group.by = "tech") --> -->
+<!-- <!-- ``` --> -->
+
+<!-- ```{r, fig.width=12} -->
+<!-- atac.mat <- coembed@assays$ATAC@data -->
+<!-- rna.mat <- coembed@assays$RNA@data -->
+
+<!-- gene.oi <- unique(topPC1.df$label) %>% str_subset("TRAV") -->
+<!-- gene.oi -->
+<!-- atac.df <- atac.mat[gene.oi,, drop=F] %>% -->
+<!--   as.matrix() %>% -->
+<!--   reshape2::melt(varnames=c("gene", "cell")) %>% -->
+<!--   mutate(tech="ATAC") %>% -->
+<!--   left_join(dpt.df, by=c('cell', "tech"))  -->
+<!-- # %>% -->
+<!-- #   group_by(tech, dpt_bin, gene) %>% -->
+<!-- #   summarise(frac=sum(value!=0)/n()) -->
+
+<!-- rna.df <- rna.mat[gene.oi,, drop=F] %>% -->
+<!--   as.matrix() %>% -->
+<!--   reshape2::melt(varnames=c("gene", "cell")) %>% -->
+<!--   filter(str_detect(cell, "RNA_")) %>% -->
+<!--   mutate(tech="RNA") %>% -->
+<!--   left_join(dpt.df, by=c('cell', "tech")) -->
+
+
+<!-- acc.pl <- atac.df %>% -->
+<!--   drop_na(dpt_bin) %>% -->
+<!--   ggplot(aes(dpt_bin, fill=as.factor(value))) + -->
+<!--   geom_bar()  -->
+<!--   scale_fill_manual(values=cell.type.pal, na.value="grey50") -->
+<!-- acc.pl -->
+<!-- ex.pl <- rna.df %>% -->
+<!--   filter(gene==gene.oi) %>% -->
+<!--   # mutate(value=ifelse(value>0,1,0)) %>% -->
+<!--   # filter(value!=0) %>% -->
+<!--   ggplot(aes(dpt_bin, value)) + -->
+<!--   # geom_violin(alpha=0.2) + -->
+<!--   # geom_point() -->
+<!--   # scale_fill_viridis_d() -->
+<!--   # scale_fill_manual(values=cell.type.pal) -->
+<!--   geom_jitter(alpha=0.5, size=0.5) + -->
+<!--   geom_smooth()  -->
+<!--   xlim(0,50) -->
+
+
+<!-- plot_grid(acc.pl, ex.pl, ncol=1, nrow=2, align = "v", axis.="l") -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- atac.df %>% -->
+<!--   drop_na(dpt_pseudotime) %>% -->
+<!--   group_by( gene, dpt_bin) %>% -->
+<!--   # summarise(frac=sum(value)/n()) %>% -->
+<!--   ggplot(aes(dpt_bin, value, color=gene)) + -->
+<!--   # geom_point() + -->
+<!--   geom_smooth() -->
+<!-- ``` -->
+
+---
+
+
+
+
+
+
+
