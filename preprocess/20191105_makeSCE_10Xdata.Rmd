@@ -158,108 +158,36 @@ x.sp = x.sp[idx,];
 x.sp
 ```
 
-## Dimensionality reduction
-Uses diffusion map algorithm w sampling technique to make it fast.
+
+## Dimensionality reduction with LSI
+```{r}
+bmat <- x.sp@bmat
+bmat <- t(bmat)
+rownames(bmat) <- x.sp@feature$name
+meta <- x.sp@metaData %>% rownames_to_column() %>% select(- c(cell_id,rowname) ) %>% column_to_rownames("barcode")
+
+bmat.seu <- CreateSeuratObject(counts = bmat, assay = "ATAC", min.cells = 100, meta.data = meta)
+bmat.seu <- RunLSI(bmat.seu, n = 30)
+```
+ 
+<!-- We remove the first component as it is strongly correlated to depth (as seen (here)[http://andrewjohnhill.com/images/posts/2019-5-6-dimensionality-reduction-for-scatac-data/analysis.html]) -->
+<!-- ```{r} -->
+<!-- FeaturePlot(bmat.seu, reduction = "lsi", dims = 5:6, feature='nCount_ATAC') -->
+<!-- ``` -->
 
 ```{r}
-## Sample 100 cells as landmarks 
-row.covs.dens <- density(
-  x = x.sp@metaData[,"logUMI"], 
-  bw = 'nrd', adjust = 1
-)
-sampling_prob <- 1 / (approx(x = row.covs.dens$x, y = row.covs.dens$y, xout = x.sp@metaData[,"logUMI"])$y + .Machine$double.eps);
-set.seed(1)
-idx.landmark.ds <- sort(sample(x = seq(nrow(x.sp)), size = 1000, prob = sampling_prob))
+bmat.seu <- FindNeighbors(bmat.seu, reduction = "lsi", dims = 1:30)
+bmat.seu <- FindClusters(bmat.seu, algorithm = 4)
+bmat.seu <- RunUMAP(bmat.seu, reduction = "lsi", dims = 1:30)
 
-## Split between landmark and query cells
-x.landmark.sp = x.sp[idx.landmark.ds,];
-x.query.sp = x.sp[-idx.landmark.ds,];
-
-## Run diffusion map on landmark
-x.landmark.sp = runDiffusionMaps(
-  obj= x.landmark.sp,
-  input.mat="bmat", 
-  num.eigs=50
-);
-x.landmark.sp@metaData$landmark = 1;
-
-## Project query cells
-x.query.sp = runDiffusionMapsExtension(
-  obj1=x.landmark.sp, 
-  obj2=x.query.sp,
-  input.mat="bmat"
-)
-x.query.sp@metaData$landmark = 0;
-
-## Combine 
-x.sp = snapRbind(x.landmark.sp, x.query.sp);
-x.sp = x.sp[order(x.sp@metaData[,"sample"])]; #IMPORTANT
+DimPlot(bmat.seu, reduction = "umap", label = T)
 ```
 
-To determine significant diffusion components:
-> We use an ad hoc method by simply looking at a pairwise plot and select the number of eigen vectors that the scatter plot starts looking like a blob. In the below example, we choose the first 15 eigen vectors.
+## Make gene activity matrix (gmat)
+
+Summing counts over gene body + 2kb upstream (promoter)
 
 ```{r}
-plotDimReductPW(
-    obj=x.sp, 
-    eigs.dims=1:50,
-    point.size=0.3,
-    point.color="grey",
-    point.shape=19,
-    point.alpha=0.6,
-    down.sample=5000,
-    pdf.file.name=NULL, 
-    pdf.height=7, 
-    pdf.width=7
-  );
-```
-
-## Clustering and visualization
-```{r}
-signif.dims = 1:15
-x.sp = runKNN(
-    obj=x.sp,
-    eigs.dims=signif.dims,
-    k=15
-  );
-
-x.sp=runCluster(
-    obj=x.sp,
-    tmp.folder=tempdir(),
-    louvain.lib="leiden",
-    seed.use=10,
-    resolution=0.7
-  );
-```
-
-Visualization
-```{r, fig.height=5, fig.width=5}
-x.sp = runViz(
- obj=x.sp, 
- tmp.folder=tempdir(),
- dims=2,
- eigs.dims=signif.dims, 
- method="umap",
- seed.use=10
-)
-
-plotViz(
-    obj= x.sp,
-    method="umap", 
-    main="Cluster",
-    point.color=x.sp@cluster, 
-    point.size=0.2, 
-    point.shape=19, 
-    text.add=TRUE,
-    text.size=1,
-    text.color="black",
-    down.sample=10000,
-    legend.add=FALSE
-  );
-
-```
-```{r}
-### DID U GET THE RIGHT GENOME??
 transcripts.gr = rtracklayer::import("~/annotations/Homo_sapiens.GRCh37.82.gtf")
 colnames(transcripts.gr@elementMetadata) <- str_replace(colnames(transcripts.gr@elementMetadata), "gene_name", "name")
 
@@ -270,6 +198,20 @@ if (GenomeInfoDb::seqlevelsStyle(genes.gr) != GenomeInfoDb::seqlevelsStyle(x.sp@
   GenomeInfoDb::seqlevelsStyle(genes.gr) <- GenomeInfoDb::seqlevelsStyle(x.sp@feature)
 }
 
+## Expand ranges to include promoter
+expandRange = function(x, upstream=2000, downstream=1000) {
+  strand_is_minus = strand(x) == "-"
+  on_plus = which(!strand_is_minus)
+  on_minus = which(strand_is_minus)
+  start(x)[on_plus] = start(x)[on_plus] - upstream
+  start(x)[on_minus] = start(x)[on_minus] - downstream
+  end(x)[on_plus] = end(x)[on_plus] + downstream
+  end(x)[on_minus] = end(x)[on_minus] + upstream
+  x
+}
+genes.gr <- expandRange(genes.gr, downstream = 0)
+
+## Make gmat
 x.sp = createGmatFromMat(
     obj=x.sp, 
     input.mat="bmat",
@@ -278,57 +220,220 @@ x.sp = createGmatFromMat(
     num.cores=10
   )
 
+gmat <- t(x.sp@gmat)
+bmat.seu[["ACTIVITY"]] <- CreateAssayObject(counts=gmat)
+```
+
+### Save Gmat as SingleCellExperiment object for benchmark
+```{r}
+# thymus.atac.act <- t(x.sp@gmat)
+# thymus.atac.act <- thymus.atac.act[names(which(table(rownames(thymus.atac.act)) == 1)),] # Remove duplicate rows
+atac.sce <- as.SingleCellExperiment(bmat.seu, assay = "ACTIVITY")
+SingleCellExperiment::logcounts(atac.sce) <- NULL
+
+counts <- SingleCellExperiment::counts(atac.sce)
+cpm <- apply(counts, 2, function(x) (x/sum(x))*1e+06)
+cpm(atac.sce) <- as(object = cpm, Class = "dgCMatrix")
+
+logcounts(atac.sce) <- log1p(cpm(atac.sce))
+rownames(atac.sce) %<>% str_replace_all("_", "-")
+
+saveRDS(atac.sce, "~/my_data/PBMC_ATAC_snapAtac_processed.RDS")
+```
+
+## Make binary gmat and save
+```{r}
+makeBinGmat <- function(atac.sce){
+  logcounts(atac.sce) <- 
+    logcounts(atac.sce) %>%
+    as.matrix() %>%
+    {ifelse(.==0, 0,1)}
+  return(atac.sce)
+}
+
+bim.atac.sce <- makeBinGmat(atac.sce)
+
+saveRDS(bim.atac.sce, "~/my_data/PBMC_ATAC_snapAtac_processed_bgmat.RDS")
+```
+
+Save SnapATAC object 
+```{r}
 saveRDS(x.sp, file = "~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
-x.sp <- readRDS(file = "~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
-
 ```
 
-```{r}
-x.seu <- snapToSeurat(x.sp, eigs.dims = 1:15)
-atac.seu <- RunUMAP(x.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:15)
-atac.seu <- AddMetaData(atac.seu, x.sp@cluster, col.name = "snap.cluster")
-DimPlot(atac.seu, reduction="umap.snap", group.by = "snap.cluster", label = T)
-```
-```{r}
-FeaturePlot(atac.seu, features = c("GNLY", "LYZ"))
+<!-- -------------------------- -->
 
-```
+<!-- ## Dimensionality reduction -->
+<!-- Uses diffusion map algorithm w sampling technique to make it fast. -->
+
+<!-- ```{r} -->
+<!-- ## Sample 100 cells as landmarks  -->
+<!-- row.covs.dens <- density( -->
+<!--   x = x.sp@metaData[,"logUMI"],  -->
+<!--   bw = 'nrd', adjust = 1 -->
+<!-- ) -->
+<!-- sampling_prob <- 1 / (approx(x = row.covs.dens$x, y = row.covs.dens$y, xout = x.sp@metaData[,"logUMI"])$y + .Machine$double.eps); -->
+<!-- set.seed(1) -->
+<!-- idx.landmark.ds <- sort(sample(x = seq(nrow(x.sp)), size = 1000, prob = sampling_prob)) -->
+
+<!-- ## Split between landmark and query cells -->
+<!-- x.landmark.sp = x.sp[idx.landmark.ds,]; -->
+<!-- x.query.sp = x.sp[-idx.landmark.ds,]; -->
+
+<!-- ## Run diffusion map on landmark -->
+<!-- x.landmark.sp = runDiffusionMaps( -->
+<!--   obj= x.landmark.sp, -->
+<!--   input.mat="bmat",  -->
+<!--   num.eigs=50 -->
+<!-- ); -->
+<!-- x.landmark.sp@metaData$landmark = 1; -->
+
+<!-- ## Project query cells -->
+<!-- x.query.sp = runDiffusionMapsExtension( -->
+<!--   obj1=x.landmark.sp,  -->
+<!--   obj2=x.query.sp, -->
+<!--   input.mat="bmat" -->
+<!-- ) -->
+<!-- x.query.sp@metaData$landmark = 0; -->
+
+<!-- ## Combine  -->
+<!-- x.sp = snapRbind(x.landmark.sp, x.query.sp); -->
+<!-- x.sp = x.sp[order(x.sp@metaData[,"sample"])]; #IMPORTANT -->
+<!-- ``` -->
+
+<!-- To determine significant diffusion components: -->
+<!-- > We use an ad hoc method by simply looking at a pairwise plot and select the number of eigen vectors that the scatter plot starts looking like a blob. In the below example, we choose the first 15 eigen vectors. -->
+
+<!-- ```{r} -->
+<!-- plotDimReductPW( -->
+<!--     obj=x.sp,  -->
+<!--     eigs.dims=1:50, -->
+<!--     point.size=0.3, -->
+<!--     point.color="grey", -->
+<!--     point.shape=19, -->
+<!--     point.alpha=0.6, -->
+<!--     down.sample=5000, -->
+<!--     pdf.file.name=NULL,  -->
+<!--     pdf.height=7,  -->
+<!--     pdf.width=7 -->
+<!--   ); -->
+<!-- ``` -->
+
+<!-- ## Clustering and visualization -->
+<!-- ```{r} -->
+<!-- signif.dims = 1:15 -->
+<!-- x.sp = runKNN( -->
+<!--     obj=x.sp, -->
+<!--     eigs.dims=signif.dims, -->
+<!--     k=15 -->
+<!--   ); -->
+
+<!-- x.sp=runCluster( -->
+<!--     obj=x.sp, -->
+<!--     tmp.folder=tempdir(), -->
+<!--     louvain.lib="leiden", -->
+<!--     seed.use=10, -->
+<!--     resolution=0.7 -->
+<!--   ); -->
+<!-- ``` -->
+
+<!-- Visualization -->
+<!-- ```{r, fig.height=5, fig.width=5} -->
+<!-- x.sp = runViz( -->
+<!--  obj=x.sp,  -->
+<!--  tmp.folder=tempdir(), -->
+<!--  dims=2, -->
+<!--  eigs.dims=signif.dims,  -->
+<!--  method="umap", -->
+<!--  seed.use=10 -->
+<!-- ) -->
+
+<!-- plotViz( -->
+<!--     obj= x.sp, -->
+<!--     method="umap",  -->
+<!--     main="Cluster", -->
+<!--     point.color=x.sp@cluster,  -->
+<!--     point.size=0.2,  -->
+<!--     point.shape=19,  -->
+<!--     text.add=TRUE, -->
+<!--     text.size=1, -->
+<!--     text.color="black", -->
+<!--     down.sample=10000, -->
+<!--     legend.add=FALSE -->
+<!--   ); -->
+
+<!-- ``` -->
+<!-- ```{r} -->
+<!-- ### DID U GET THE RIGHT GENOME?? -->
+<!-- transcripts.gr = rtracklayer::import("~/annotations/Homo_sapiens.GRCh37.82.gtf") -->
+<!-- colnames(transcripts.gr@elementMetadata) <- str_replace(colnames(transcripts.gr@elementMetadata), "gene_name", "name") -->
+
+<!-- genes.gr <- unlist(range(split(transcripts.gr, ~ name)))  ## From transcripts to genes -->
+<!-- genes.gr$name <- names(genes.gr) -->
+
+<!-- if (GenomeInfoDb::seqlevelsStyle(genes.gr) != GenomeInfoDb::seqlevelsStyle(x.sp@feature) ) { -->
+<!--   GenomeInfoDb::seqlevelsStyle(genes.gr) <- GenomeInfoDb::seqlevelsStyle(x.sp@feature) -->
+<!-- } -->
+
+<!-- x.sp = createGmatFromMat( -->
+<!--     obj=x.sp,  -->
+<!--     input.mat="bmat", -->
+<!--     genes=genes.gr, -->
+<!--     do.par=TRUE, -->
+<!--     num.cores=10 -->
+<!--   ) -->
+
+<!-- saveRDS(x.sp, file = "~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS") -->
+<!-- x.sp <- readRDS(file = "~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS") -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- x.seu <- snapToSeurat(x.sp, eigs.dims = 1:15) -->
+<!-- atac.seu <- RunUMAP(x.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:15) -->
+<!-- atac.seu <- AddMetaData(atac.seu, x.sp@cluster, col.name = "snap.cluster") -->
+<!-- DimPlot(atac.seu, reduction="umap.snap", group.by = "snap.cluster", label = T) -->
+<!-- ``` -->
+<!-- ```{r} -->
+<!-- FeaturePlot(atac.seu, features = c("GNLY", "LYZ")) -->
+
+<!-- ``` -->
 
 
-### Read RNA and save count mat
-```{r}
-pbmc.rna <- readRDS("~/my_data/10X_data/pbmc_10k_v3.rds")
-pbmc.rna.mat <- pbmc.rna@assays$RNA@counts
+<!-- ### Read RNA and save count mat -->
+<!-- ```{r} -->
+<!-- pbmc.rna <- readRDS("~/my_data/10X_data/pbmc_10k_v3.rds") -->
+<!-- pbmc.rna.mat <- pbmc.rna@assays$RNA@counts -->
 
-```
+<!-- ``` -->
 
-### Make SCE list for integration benchmark
-```{r}
-x.sp <- readRDS("~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
-pbmc.atac.act <- t(x.sp@gmat)
-pbmc.atac.act <- pbmc.atac.act[names(which(table(rownames(pbmc.atac.act)) == 1)),] # Remove duplicate rows
+<!-- ### Make SCE list for integration benchmark -->
+<!-- ```{r} -->
+<!-- x.sp <- readRDS("~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS") -->
+<!-- pbmc.atac.act <- t(x.sp@gmat) -->
+<!-- pbmc.atac.act <- pbmc.atac.act[names(which(table(rownames(pbmc.atac.act)) == 1)),] # Remove duplicate rows -->
 
-sce.list <- makeSCElist(list(RNA=pbmc.rna.mat, ATAC=pbmc.atac.act))
-sce.list$RNA <- filterCells(sce.list$RNA)
-# sce.list$ATAC <- filterCells(sce.list$ATAC, fracMito = 1)
+<!-- sce.list <- makeSCElist(list(RNA=pbmc.rna.mat, ATAC=pbmc.atac.act)) -->
+<!-- sce.list$RNA <- filterCells(sce.list$RNA) -->
+<!-- # sce.list$ATAC <- filterCells(sce.list$ATAC, fracMito = 1) -->
 
-sce.list <- map(sce.list, ~ normalizePerCell(.x))
+<!-- sce.list <- map(sce.list, ~ normalizePerCell(.x)) -->
 
-logcounts(sce.list$RNA) <- log1p(cpm(sce.list$RNA))
-logcounts(sce.list$ATAC) <- log1p(cpm(sce.list$ATAC))
+<!-- logcounts(sce.list$RNA) <- log1p(cpm(sce.list$RNA)) -->
+<!-- logcounts(sce.list$ATAC) <- log1p(cpm(sce.list$ATAC)) -->
 
-## Compatibility w Seurat
-rownames(sce.list$RNA) %<>% str_replace_all("_", "-")
-rownames(sce.list$ATAC) %<>% str_replace_all("_", "-")
+<!-- ## Compatibility w Seurat -->
+<!-- rownames(sce.list$RNA) %<>% str_replace_all("_", "-") -->
+<!-- rownames(sce.list$ATAC) %<>% str_replace_all("_", "-") -->
 
-coldata <- pbmc.rna@meta.data[,c( "celltype"), drop=F]
-colnames(coldata) <- "annotation"
-colData(sce.list$RNA) <- DataFrame(coldata[colnames(sce.list$RNA),, drop=F])
+<!-- coldata <- pbmc.rna@meta.data[,c( "celltype"), drop=F] -->
+<!-- colnames(coldata) <- "annotation" -->
+<!-- colData(sce.list$RNA) <- DataFrame(coldata[colnames(sce.list$RNA),, drop=F]) -->
 
-## Save SingleCellExperiment list
-saveRDS(object = sce.list, file = "~/my_data/10X_data/PBMC_SCElist_20191105.RDS")
+<!-- ## Save SingleCellExperiment list -->
+<!-- saveRDS(object = sce.list, file = "~/my_data/10X_data/PBMC_SCElist_20191105.RDS") -->
 
-```
+<!-- ``` -->
 
 
 

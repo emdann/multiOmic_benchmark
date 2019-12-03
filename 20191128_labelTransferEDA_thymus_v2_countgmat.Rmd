@@ -1,0 +1,623 @@
+---
+title: "Label transfer EDA - Thymus Bgmat - reference HVG"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+library(Seurat)
+library(SnapATAC)
+library(tidyverse)
+library(DescTools)  # 4 AUC function
+library(glue)
+library(ggalluvial)  # 4 river plot
+library(ggpubr)
+source("~/multiOmic_benchmark/utils.R")
+source("~/multiOmic_benchmark/KNN_agreement.R")
+
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+## Make output directory
+outdir <- "~/multiOmic_benchmark/report/output/20191113_labelTransferEDA_F74_v2_countsgmat/"
+ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
+```
+
+
+```{r}
+seu.cca <- readRDS("~/models2/labelTransferCCA_F74_countmat_unionHVGnHVGFeatures.RDS")
+seu.liger <- readRDS("~/models2/labelTransferLiger_F74_countmat_unionHVGnHVGFeatures.RDS")
+seu.conos <- readRDS("~/models2/labelTransferConos_F74_countmat_unionHVGnHVGFeatures.RDS")
+
+integrate_features <- scan("~/my_data/intFeatures_unionHVGnHVG_F74_gmat.txt", what='')
+
+int.list <- list(CCA=seu.cca, Liger=seu.liger, Conos=seu.conos)
+
+# ## Make method color palette
+# method.palette <- brewer_palette_4_values(names(int.list), "Set1")
+
+```
+
+### Embeddings
+Visualize label transfer on original ATAC data (embedded SnapATAC bins)
+```{r, message=FALSE}
+## Load original data
+orig.ATAC <- readRDS("~/my_data/F74_ATAC_snapAtac_processed.RDS")
+orig.RNA <- readRDS("~/my_data/F74_RNA_seurat_processed.RDS")
+
+atac.seu <- as.Seurat(orig.ATAC, counts = "counts", data="logcounts")
+
+## Add cell type predictions
+pred.cca <- getPredictedLabels(seu.cca, "CCA", score.col = "prediction.score.max")
+pred.liger <- getPredictedLabels(seu.liger, "Liger")
+pred.conos <- getPredictedLabels(seu.conos, "Conos")
+
+if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) == rownames(pred.liger))) {
+  atac.seu <- AddMetaData(atac.seu, metadata = cbind(pred.cca, pred.liger, pred.conos))
+} else {
+  stop("Non corresponding cell names")
+}
+```
+
+```{r, fig.height=8, fig.width=18}
+## make cell type palette
+cell.types <- levels(seu.cca$RNA$annotation)
+cell.type.pal <- brewer_palette_4_values(cell.types, palette = "Set1") %>% setNames(cell.types)
+# atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:16)
+
+## Embedding RNA
+orig.RNA.seu <- as.Seurat(orig.RNA)
+orig.RNA.seu <- FindVariableFeatures(orig.RNA.seu)
+orig.RNA.seu <- ScaleData(orig.RNA.seu)
+orig.RNA.seu <- RunPCA(orig.RNA.seu)
+orig.RNA.seu <- RunUMAP(orig.RNA.seu, dims=1:40)
+
+
+ggpubr::ggarrange(
+  plotlist = list(
+    DimPlot(orig.RNA.seu, reduction = "umap", group.by = "annotation", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("RNA"),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("CCA"),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Liger"),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos")
+  ),
+  common.legend = TRUE, ncol=4, nrow=1
+) +
+  ggsave(paste0(outdir, "umap_labels.png"), width=17, height = 6)
+
+
+```
+
+Filter low confidence calls 
+```{r, fig.height=8, fig.width=18}
+pred.cca.filtered <- getPredictedLabels(seu.cca, "CCA", score.col = "prediction.score.max", filter_score = 0.5)
+pred.liger.filtered <- getPredictedLabels(seu.liger, "Liger", filter_score = 0.5)
+pred.conos.filtered <- getPredictedLabels(seu.conos, "Conos", filter_score = 0.5)
+
+if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) == rownames(pred.liger))) {
+  atac.seu <- AddMetaData(atac.seu, metadata = cbind(pred.cca.filtered, pred.liger.filtered, pred.conos.filtered))
+} else {
+  stop("Non corresponding cell names")
+}
+
+ggpubr::ggarrange(
+  plotlist = list(
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") +
+      ggtitle("CCA"),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Liger"),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Conos", cols=cell.type.pal) + 
+      scale_color_manual(values = cell.type.pal, na.value="grey80") + ggtitle("Conos"),
+    DimPlot(orig.RNA.seu, reduction = "umap", group.by = "annotation", cols=cell.type.pal) + ggtitle("RNA") +
+      scale_color_manual(values = cell.type.pal, na.value="grey80")
+  ),
+  common.legend = TRUE, ncol=4, nrow=1
+) +
+  ggsave(paste0(outdir, "umap_labels_filtered.png"), width=16, height = 6)
+
+```
+
+
+<!-- ```{r, fig.width=15, fig.height=20} -->
+<!-- compareCluster <- function(clust){ -->
+<!--   plotlist <- map(list("CCA", "Liger", "Conos"),  -->
+<!--                   ~ FeaturePlotCluster(atac.seu, annotation_col = glue('predicted.id_{.x}'),  -->
+<!--                                    feature_col=glue("score_{.x}"), -->
+<!--                                    cluster=clust, label=glue('{clust} - {.x}'), -->
+
+<!--                                    ) -->
+<!--                   ) -->
+<!--   rna_plot <- DimPlotCluster(orig.RNA.seu, annotation_col = "annotation", cluster = clust, label=glue("{clust} - RNA"), reduct = "umap") -->
+<!--   plotlist[[4]] <- rna_plot -->
+<!--   ggarrange(plotlist = plotlist, nrow=1) -->
+<!--   } -->
+
+<!-- ggarrange(plotlist = map(cell.types[!cell.types %in% c( "NK","NA(1)","NA(3)","ILC3","SP (2)")] , ~ compareCluster(.x)), ncol=1) + -->
+<!--   ggsave(paste0(outdir, "umap_clusters.png"), height = 30, width = 10) -->
+<!-- ``` -->
+
+## Prediction score
+Quantifies the uncertainty of the prediction. Calculated differently for every method, but used to define which cells are "unassigned".
+
+
+```{r}
+orig.composition <- orig.RNA$annotation
+orig.frac <- table(orig.composition)/length(orig.composition)
+
+orig.frac.df <- data.frame(orig.frac) %>%
+  dplyr::rename(predicted.id=orig.composition, frac.label=Freq) %>%
+  mutate(method="original.RNA")
+
+score_cols <- str_subset(colnames(atac.seu@meta.data), 'score_')
+label_cols <- str_subset(colnames(atac.seu@meta.data), 'predicted.id_')
+
+pred.labels.df <- imap(list(CCA=pred.cca, Liger=pred.liger, Conos=pred.conos), ~ 
+      rownames_to_column(.x, "cell") %>%
+      rename_all(funs(str_remove(., str_c("_",.y)))) %>%
+      mutate(method=.y)
+    ) %>%
+  purrr::reduce(bind_rows) %>%
+  mutate(score=ifelse(is.na(score), 0, score))
+
+predict_score_hist <- 
+  pred.labels.df %>%
+  ggplot(aes(score, fill=method)) +
+  geom_histogram(position="identity", alpha=0.8, bins=40) +
+facet_grid(method ~., scales = "free_y") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("Label prediction score") +
+  theme_bw(base_size = 16) +
+  theme(legend.position = "top")
+
+cutoffs <- seq(0,1,0.05)
+predict_score_cumedist <-
+  pred.labels.df %>%
+  group_by(method) %>%
+  mutate(bins=cut(score, breaks = cutoffs)) %>%
+  mutate(score=as.numeric(str_remove_all(as.character(bins), ".+,|]"))) %>%
+  ggplot(aes(score, color=method)) +
+  stat_ecdf(size=0.8, alpha=0.7) +
+  scale_color_brewer(palette = "Set1") +
+  ylab("Fraction of unassigned cells") +
+  xlab("Prediction score cutoff") +
+  theme_bw(base_size = 16) +
+  xlim(0,1) +
+  coord_fixed() +
+  guides(color="none") 
+
+ggpubr::ggarrange(predict_score_hist, predict_score_cumedist, common.legend = TRUE, widths = c(0.8, 1.2),
+          labels=c("A", "B")) +
+  ggsave(paste0(outdir, "prediction_score_distribution.png"), height = 6, width = 10)
+```
+
+```{r, fig.width=16, fig.height=8}
+ggpubr::ggarrange(
+  plotlist = list(
+    FeaturePlot(atac.seu, reduction = "UMAP", feature = "score_CCA"  , coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("CCA"),
+    FeaturePlot(atac.seu, reduction = "UMAP", feature = "score_Liger", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Liger"),
+    FeaturePlot(atac.seu, reduction = "UMAP", feature = "score_Conos", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Conos")
+  ),
+  common.legend = TRUE, ncol=3, nrow=1
+) +
+  ggsave(paste0(outdir, "prediction_score_umaps.png"), height = 7, width=14)
+```
+```{r, fig.width=16, fig.height=5}
+pred.labels.df %>%
+  group_by(method, predicted.id) %>%
+  mutate(median.score=median(score), size=n()) %>%
+  ungroup() %>%
+  group_by(method) %>%
+  mutate(rank = dense_rank(median.score)) %>%
+  ungroup() %>%
+  # ggplot(aes(size, median.score)) + geom_point(aes(color=method)) +
+  ggplot(aes(as.factor(rank), score, fill=predicted.id)) +
+  # geom_violin() +
+  geom_boxplot(varwidth = F) +
+  # ggbeeswarm::geom_quasirandom(alpha=0.3) +
+  # geom_point(aes(y=median.score)) +
+  # stat_ecdf() +
+  facet_wrap(method~., ncol=3, scales="free_x") +
+  scale_fill_manual(values=cell.type.pal)
+```
+
+
+
+## Cell type composition
+
+Compare cell type fractions (w uncertainty)
+
+```{r, fig.width=14, fig.height=7}
+orig.rank.df <- orig.frac.df %>% 
+  mutate(orig.rank=dense_rank(frac.label)) %>%
+  select(orig.rank, predicted.id) %>%
+  distinct() %>%
+  arrange(orig.rank) %>%
+  column_to_rownames("predicted.id") 
+
+pred.labels.df %>%
+  group_by(method) %>%
+  drop_na() %>%
+  mutate(tot.cells=n()) %>%
+  ungroup() %>%
+  group_by(method, predicted.id) %>%
+  summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=mean(score)) %>%
+  mutate(frac.label=tot.label/tot.cells) %>%
+  bind_rows(orig.frac.df) %>%
+  mutate(orig.rank = orig.rank.df[predicted.id,]) %>%
+  mutate(predicted.id=factor(predicted.id, levels=rownames(orig.rank.df)))%>%
+  # select(method, predicted.id, frac.label) %>%
+  # distinct() %>%
+  ggplot(aes(predicted.id, frac.label, fill=mean.score, color=mean.score)) +
+  geom_point(size=2) +
+  geom_col(width=0.05) +
+  coord_flip() +
+  # geom_line(aes(group=method)) +
+  facet_wrap(method~., nrow=1, ncol=4, scales="free_x") +
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  ylab("Fraction of cells") +
+  theme_bw(base_size = 16) +
+  ggsave(paste0(outdir, "cell_type_composition_bars.png"), width = 15, height = 5)
+```
+
+
+<!-- Does the uncertainty depend on the size of the cluster? -->
+<!-- ```{r, fig.width=14, fig.height=5} -->
+
+<!-- pred.labels.df %>% -->
+<!--   group_by(method) %>% -->
+<!--   drop_na() %>% -->
+<!--   mutate(tot.cells=n()) %>% -->
+<!--   ungroup() %>% -->
+<!--   group_by(method, predicted.id) %>% -->
+<!--   summarise(tot.label = n(), tot.cells = max(tot.cells), mean.score=median(score), sd.score=mad(score)) %>% -->
+<!--   mutate(frac.label=tot.label/tot.cells) %>% -->
+<!--   # bind_rows(orig.frac.df) %>% -->
+<!--   ggplot(aes(frac.label, mean.score, color=method)) + -->
+<!--   geom_point(size=2) + -->
+<!--   geom_errorbar(aes(ymin=mean.score-sd.score, ymax=mean.score+sd.score), alpha=0.6) + -->
+<!--   scale_color_brewer(palette="Set1") + -->
+<!--   # geom_smooth(method = "loess", span=1.2) + -->
+<!--   facet_grid(. ~ method) + -->
+<!--   theme_bw(base_size = 16) + -->
+<!--   stat_cor(label.x = 0.2, label.y=0.25, color="black", size=5)  -->
+
+
+<!-- ``` -->
+
+### Agreement with unsupervised clustering of ATAC data
+Calculate which fractions of NNs in bin based graph of ATAC cells have the same annotation
+```{r}
+k = 30
+atac.seu <- FindNeighbors(atac.seu, assay = "ATAC", reduction = "LSI", dims = 1:16, k.param = k)
+
+atac.nn.list <- getNNlist(atac.seu)
+
+knn.score.CCA <- test.knn(atac.nn.list, setNames(pred.cca.filtered$predicted.id_CCA, rownames(pred.cca.filtered)))
+knn.score.conos <- test.knn(atac.nn.list, setNames(pred.conos.filtered$predicted.id_Conos, rownames(pred.conos.filtered)))
+knn.score.liger <- test.knn(atac.nn.list, setNames(pred.liger.filtered$predicted.id_Liger, rownames(pred.liger.filtered)))
+
+knn_score_df <-
+  list(CCA=knn.score.CCA, conos=knn.score.conos, liger=knn.score.liger) %>%
+  imap( ~ data.frame(KNN_score = .x$KNN_score, D=.x$D, p.val=.x$p.val, method=.y)) %>%
+  # imap( ~ data.frame(KNN_score = .x$KNN_score, cell= names(.x$KNN_score), D=.x$D, p.val=.x$p.val, method=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score)) %>%
+  mutate(data="true")
+knn_score_null_df <-
+  list(CCA=knn.score.CCA, conos=knn.score.conos, liger=knn.score.liger) %>%
+  imap( ~ data.frame(KNN_score = .x$null, D=.x$D, p.val=.x$p.val, method=.y)) %>%
+  # imap( ~ data.frame(KNN_score = .x$KNN_score, cell= names(.x$KNN_score), D=.x$D, p.val=.x$p.val, method=.y)) %>%
+  purrr::reduce(bind_rows) %>%
+  dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score)) %>%
+  mutate(data="null")
+
+
+bind_rows(knn_score_df, knn_score_null_df) %>%
+  ggplot(aes(KNN_score, color=method)) +
+  stat_ecdf( aes(alpha=data), size=1) +
+  # stat_ecdf(data=. %>% filter(data=="true"), size=1) +
+  facet_grid(method~.) +
+  scale_alpha_discrete( range=c(0.5,1), name="") +
+  scale_color_brewer(palette = "Set1") +
+  geom_text(data= . %>% distinct(method, D, p.val), 
+            x=1, y=0.05, hjust=1,
+            aes(label=glue("KNN score = {round(D, 3)}, p.value: {p.val}"), y=c(0.90, 0.95, 1))) +
+  theme_bw(base_size = 16) +
+  ylab("ECDF") + xlab("Fraction of KNNs with shared label") +
+  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 6, width=7)
+```
+
+
+<!-- #### Which cells are inconsistently aligned? -->
+<!-- ```{r, fig.width=14, fig.height=10} -->
+<!-- pred.labels.df %>% -->
+<!--   select(method, predicted.id, cell) %>% -->
+<!--   mutate(predicted.id=ifelse(is.na(predicted.id), "none", predicted.id)) %>% -->
+<!--   ggplot(aes(x=method, stratum=predicted.id, alluvium=cell, fill=predicted.id, label=predicted.id)) + -->
+<!--   geom_flow() + -->
+<!--   geom_stratum(color=NA) + -->
+<!--   geom_text(stat="stratum") + -->
+<!--   theme_bw(base_size = 16) -->
+<!-- ``` -->
+<!-- #### Which cells are inconsistently scored? -->
+<!-- ```{r, fig.width=14, fig.height=8} -->
+<!-- library(ggalluvial) -->
+<!-- pred.labels.df %>% -->
+<!--   select(method, predicted.id, cell) %>% -->
+<!--   mutate(predicted.id=ifelse(is.na(predicted.id), "none", predicted.id)) %>% -->
+<!--   ggplot(aes(x=method, stratum=predicted.id, alluvium=cell, fill=predicted.id, label=predicted.id)) + -->
+<!--   geom_flow() + -->
+<!--   geom_stratum() + -->
+<!--   geom_text(stat="stratum") + -->
+<!--   theme_bw(base_size = 16) -->
+<!-- ``` -->
+
+## Accessibility of markers
+Taking markers from Fig. S2 of JP's manuscript
+```{r, fig.height=13, fig.width=10, warning=FALSE, message=FALSE}
+thymus.markers <- c("PTPRC", "CD3G", "TYROBP","CD19","HOXA9",'FXYD2',"SH3TC1","CCR9","CD8A", "CD8B","PDCD1", "CRTAM","CD40LG","CCR6","FOXP3","SOX13","ZNF683","KLRD1","TNFSF11","VPREB1","MS4A1", "CLEC9A", "CLEC10A", "LAMP3", "IL3RA", "FCGR3B", "C2","TPSB2",
+                    'ITGA2B',"GYPA", "CDH5", "RGS5","CDH1", "PDGFRA","CRABP1")
+# pbmc.markers <- c("CD79A", "MS4A1", "CD8A", "CD8B", "LYZ")
+# thymus.markers <- list(Fb=c("PDGFRA", "COLEC11", "FBN1", "PI16"),
+#                        VSMC=c("PDGFRB", 'ACTA2', "RGS5"),
+#                        Endo=c("PECAM1", "CDH5","LYVE1"),
+#                        TEC = c("EPCAM", "FOXN1", "CCL25", "CCL19")
+#                        )
+thymus.markers.df <- imap(thymus.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>%
+  purrr::reduce(bind_rows)
+
+marker.access.df <- atac.seu@assays$RNA@data[intersect(thymus.markers, rownames(atac.seu@assays$RNA)),] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>%
+  full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>%
+  # full_join(thymus.markers.df) %>%
+  pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>%
+  dplyr::mutate(method=str_remove(method,".+_")) %>%
+  filter(method %in% c("CCA", "Liger", "Conos")) 
+
+ordered_cell_types <- c("DN", "DP (Q)", "DP (P)", "SP (1)", "NK", "ILC3", "DC", "Mac", "Ery", "Fib")
+
+markers_pl <- 
+  marker.access.df %>%
+  mutate(predicted.id = case_when(str_detect(predicted.id, "CD8") ~ "CD8+T",
+                                  # str_detect(predicted.id, "CD4") ~ "CD4+T",
+                                  TRUE ~ predicted.id
+                                  )
+         ) %>%
+  mutate(predicted.id=factor(predicted.id, levels = ordered_cell_types)) %>%
+  group_by(method, predicted.id, gene) %>%
+  dplyr::mutate(frac.cells=sum(log.counts > 0)/n()) %>%
+  # filter(method=="CCA") %>%
+  ungroup() %>%
+  ggplot( aes( gene, predicted.id)) +
+  geom_point(aes(size=frac.cells, color=frac.cells)) +
+  facet_grid(method~., space="free", scales="free_x") +
+  scale_color_gradient(high="darkblue", low="white") +
+  # scale_color_viridis_c() +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
+        strip.text.x = element_text(angle=45)) 
+
+markers_pl 
+  
+ggsave(paste0(outdir, "Thymus_markers_accessibility.png"), height = 16, width = 12)
+```
+
+Reproducing Fig.2H on T-cell development
+```{r, fig.width=10, fig.height=12}
+t.cell.markers <- list(known.markers = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "TRAC", "CD4", "CD8A", "CD8B"),
+                       chemokine.receptors = c("CCR9", "CCR7"),
+                       tcr.activation = c("CD5", "CD27"),
+                       proliferation=c("PCNA", "CDK1", "MKI67"),
+                       cyclin.D = c("CCND2", "CCND3"),
+                       recombination=c("RAG1", "RAG2"),
+                       apoptosis=c("HRK","BMF", "TP53INP1"),
+                       stage.markers = c("ST18", "HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "SATB1", "TOX2")
+                       ) 
+t.cell.markers.df <- imap(t.cell.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>%
+  purrr::reduce(bind_rows)
+
+ordered.tcells <- c("DN", "DP (P)", "DP (Q)","SP (1)")
+
+tcells.markers.df <- 
+  atac.seu@assays$RNA@data[intersect(thymus.markers, rownames(atac.seu@assays$RNA)),] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>%
+  full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>%
+  pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>%
+  dplyr::mutate(method=str_remove(method,".+_")) %>%
+  filter(method %in% c("CCA", "Liger", "Conos")) %>%
+  mutate(predicted.id=ifelse(str_detect(predicted.id, "CD8+"), "CD8+T", predicted.id)) %>%
+  mutate(predicted.id=ifelse(str_detect(predicted.id, "CD4+"), "CD4+T", predicted.id)) %>%
+  filter(predicted.id %in% ordered.tcells) %>%
+  group_by(method, predicted.id, gene) %>%
+  dplyr::mutate(frac.cells=sum(log.counts > 0)/n(), mean.acc=mean(log.counts)) %>%
+  ungroup() 
+
+tcells.markers.df %>%
+  full_join(t.cell.markers.df) %>%
+  # filter(method=="CCA") %>%
+  mutate(predicted.id=factor(predicted.id, levels=ordered.tcells)) %>%
+  ggplot(aes( predicted.id, gene)) +
+  facet_grid(cell.type.class~method, scales = "free_y", space="free") +
+  geom_point(aes(size=frac.cells, color=frac.cells)) +
+  # scale_color_gradient(high="darkblue", low="white") +
+  scale_color_viridis_c() +
+  # scale_color_gradient2(midpoint = 0.5) +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
+        strip.text.y = element_text(angle=0)) 
+
+ggsave(paste0(outdir, "tcell_markers.png"), height = 14, width = 14)
+
+```
+
+<!-- ### Compare feature selection strategy (reference based) -->
+<!-- ```{r} -->
+<!-- seu.cca.ref <- readRDS("~/models/labelTransferCCA_reference_hvg_F74_SCElist_20191101.RDS") -->
+<!-- seu.liger.ref <- readRDS("~/models/labelTransferLiger_reference_hvg_F74_SCElist_20191101.RDS") -->
+<!-- seu.conos.ref <- readRDS("~/models/labelTransferConos_reference_hvg_F74_SCElist_20191101.RDS") -->
+
+<!-- integrate_features_ref <- scan("~/models/intFeatures_reference_hvg_2000_F74_SCElist_20191101.txt", what = "") -->
+
+<!-- int.list.ref <- list(CCA=seu.cca.ref, Liger=seu.liger.ref, Conos=seu.conos.ref) -->
+
+<!-- ## Add to atac Seurat object -->
+<!-- pred.cca.ref <- getPredictedLabels(seu.cca.ref, "CCA_ref", score.col = "prediction.score.max") -->
+<!-- pred.liger.ref <- getPredictedLabels(seu.liger.ref, "Liger_ref") -->
+<!-- pred.conos.ref <- getPredictedLabels(seu.conos.ref, "Conos_ref") -->
+
+<!-- if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) == rownames(pred.liger))) { -->
+<!--   atac.seu <- AddMetaData(atac.seu, metadata = cbind(pred.cca.ref, pred.liger.ref, pred.conos.ref)) -->
+<!-- } else { -->
+<!--   stop("Non corresponding cell names") -->
+<!-- } -->
+
+<!-- ``` -->
+
+<!-- ```{r, fig.width=19, fig.height=9} -->
+<!-- ggpubr::ggarrange( -->
+<!--   plotlist = list( -->
+<!--     DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA_ref"  , cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("CCA"), -->
+<!--     DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger_ref", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Liger"), -->
+<!--     DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Conos_ref", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos") -->
+<!--   ), -->
+<!--   common.legend = TRUE, ncol=3, nrow=1 -->
+<!-- )  -->
+<!-- ``` -->
+
+<!-- ```{r, fig.height=10, fig.width=16} -->
+<!-- pred.labels.ref.df <- imap(list(CCA=pred.cca.ref, Liger=pred.liger.ref, Conos=pred.conos.ref), ~  -->
+<!--       rownames_to_column(.x, "cell") %>% -->
+<!--       rename_all(funs(str_remove(., str_c("_",.y)))) %>% -->
+<!--       mutate(method=.y) -->
+<!--     ) %>% -->
+<!--   purrr::reduce(bind_rows) %>% -->
+<!--   mutate(score=ifelse(is.na(score_ref), 0, score_ref)) -->
+
+<!-- full_join( -->
+<!--   pred.labels.df, -->
+<!--   select(pred.labels.ref.df, cell, predicted.id_ref, score_ref, method), -->
+<!--   by=c("cell", "method") -->
+<!--   ) %>% -->
+<!--   group_by(method, predicted.id) %>% -->
+<!--   mutate(n_pred=n()) %>% -->
+<!--   ungroup() %>% -->
+<!--   group_by(method, predicted.id, predicted.id_ref) %>% -->
+<!--   summarise(n=n(), n_pred=max(n_pred)) %>% -->
+<!--   mutate(frac=n/n_pred) %>% -->
+<!--   ggplot(aes(predicted.id, predicted.id_ref)) + -->
+<!--   geom_tile(aes(fill=frac)) + -->
+<!--   facet_wrap(method~., nrow=1, ncol=3) + -->
+<!--   coord_fixed() + -->
+<!--   scale_fill_gradient(low="white", high="red") + -->
+<!--   ylab("Feat. selection: reference HVG") + xlab("Feat. selection: union HVG") + -->
+<!--   theme_cowplot(font_size = 16) + -->
+<!--   theme(axis.text.x = element_text(angle=45, hjust=1)) + -->
+<!--   ggsave(paste0(outdir, "unionVSreference.png"), height = 12, width=10) -->
+<!-- ``` -->
+<!-- ```{r} -->
+
+<!-- score.CCA.ref <-   imap_dbl(atac.nn.list, ~ sum(pred.cca.ref[.x,1] == pred.cca.ref[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+<!-- score.Conos.ref <- imap_dbl(atac.nn.list, ~ sum(pred.conos.ref[.x,1] == pred.conos.ref[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+<!-- score.Liger.ref <- imap_dbl(atac.nn.list, ~ sum(pred.liger.ref[.x,1] == pred.liger.ref[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+
+<!-- knn_score_ref_df <- -->
+<!--   as.data.frame(cbind(score.Conos.ref, score.Liger.ref, score.CCA.ref)) %>% -->
+<!--   rownames_to_column("cell") %>% -->
+<!--   pivot_longer(cols=str_subset(colnames(.), "score"), names_to = "method", values_to = "KNN_score") %>% -->
+<!--   dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score), -->
+<!--                 method=str_remove(method, "score.")) -->
+
+<!-- quants = seq(0,1, by = 0.05) -->
+<!-- AUECDF_knn_score <- knn_score_ref_df %>% -->
+<!--   split(.$method) %>% -->
+<!--   map_dbl( ~ .x %>% -->
+<!--       arrange(KNN_score) %>%  -->
+<!--       {ecdf(.$KNN_score)(quants)} %>% AUC(quants,.) -->
+<!--     ) -->
+
+<!-- knn_score_ref_df %>% -->
+<!--   mutate(AUC=AUECDF_knn_score[method]) %>% -->
+<!--   ggplot(aes(KNN_score, color=method, fill=method)) + -->
+<!--   stat_ecdf(size=1) + -->
+<!--   scale_color_brewer(palette = "Set1") + -->
+<!--   geom_text(data=. %>% group_by(method) %>% summarise(AUC=max(AUC)),  -->
+<!--             x=0.05, hjust=0, -->
+<!--             aes(label=glue("AUC = {round(AUC, 3)}"), y=c(0.90, 0.95, 1))) + -->
+<!--   theme_bw(base_size = 16) + -->
+<!--   ylab("ECDF")  -->
+<!-- ``` -->
+
+<!-- ### Is the union or the reference best maintaining the structure of the ATAC? -->
+<!-- ```{r, fig.width=15,fig.height=7} -->
+<!-- k = 50 -->
+<!-- atac.seu <- FindNeighbors(atac.seu, assay = "ATAC", reduction = "SnapATAC", dims = 1:15, k.param = k) -->
+
+<!-- atac.nn.list <- getNNlist(atac.seu) -->
+
+<!-- score.CCA <- imap_dbl(atac.nn.list, ~ sum(pred.cca[.x,1] == pred.cca[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+<!-- score.Conos <- imap_dbl(atac.nn.list, ~ sum(pred.conos[.x,1] == pred.conos[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+<!-- score.Liger <- imap_dbl(atac.nn.list, ~ sum(pred.liger[.x,1] == pred.liger[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+
+<!-- knn_score_df <- -->
+<!--   as.data.frame(cbind(score.Conos, score.Liger, score.CCA)) %>% -->
+<!--   rownames_to_column("cell") %>% -->
+<!--   pivot_longer(cols=str_subset(colnames(.), "score"), names_to = "method", values_to = "KNN_score") %>% -->
+<!--   dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score), -->
+<!--                 method=str_remove(method, "score.")) -->
+
+
+<!-- score.CCA.ref <-   imap_dbl(atac.nn.list, ~ sum(pred.cca.ref[.x,1] == pred.cca.ref[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+<!-- score.Conos.ref <- imap_dbl(atac.nn.list, ~ sum(pred.conos.ref[.x,1] == pred.conos.ref[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+<!-- score.Liger.ref <- imap_dbl(atac.nn.list, ~ sum(pred.liger.ref[.x,1] == pred.liger.ref[.y,1])/k) %>% setNames(names(atac.nn.list)) -->
+
+<!-- knn_score_ref_df <- -->
+<!--   as.data.frame(cbind(score.Conos.ref, score.Liger.ref, score.CCA.ref)) %>% -->
+<!--   rownames_to_column("cell") %>% -->
+<!--   pivot_longer(cols=str_subset(colnames(.), "score"), names_to = "method", values_to = "KNN_score") %>% -->
+<!--   dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score), -->
+<!--                 method=str_remove(method, "score.")) -->
+
+
+<!-- bind_rows(knn_score_df, knn_score_ref_df) %>% -->
+<!--   mutate(feature.selection=ifelse(str_detect(method, "ref"), "ref", "union")) %>% -->
+<!--   mutate(method=str_remove(method, ".ref")) %>% -->
+<!--   ggplot(aes(KNN_score, color=feature.selection, fill=method)) + -->
+<!--   stat_ecdf(size=1) + -->
+<!--   scale_color_brewer(palette = "Set1") + -->
+<!--   facet_wrap(method~.) + -->
+<!--   theme_bw(base_size = 16) + -->
+<!--   ylab("ECDF") + -->
+<!--   ggtitle(paste("K =", k)) + -->
+<!--   ggsave(paste0(outdir, "unionVSreference_KNN.png"), height = 4, width = 10) -->
+
+<!-- ``` -->
+
+<!-- --- -->
+
+<!-- ```{r} -->
+<!-- plotly::ggplotly(DimPlot(orig.RNA.seu, reduction = "UMAP", group.by = "predicted.id_CCA")) -->
+<!-- plotly::ggplotly(DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA")) -->
+<!-- ``` -->
+
+
+### Thoughts
+- Conos scores a lot of cells with high confidence, but fails to assign cells to difficult clusters 
+- CCA resembles the composition of the RNA data better, but curious that the other methods identify way more 
+
+
+
+
+
+
+
+
+
+

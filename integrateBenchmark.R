@@ -159,7 +159,7 @@ integrate_liger <- function(sce.list, integrate_features, reference="RNA", query
 #' 
 labelTransfer_seuratCCA <- function(transfer.anchors, seurat.list, reference="RNA", query="ATAC"){
   ## Transfer cell type labels
-  celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = seurat.list[[reference]]$annotation, weight.reduction = "cca")
+  celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = seurat.list[[reference]]$annotation, weight.reduction = seurat.list[[query]][["LSI"]])
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = celltype.predictions)
   return(seurat.list)
 }
@@ -202,9 +202,9 @@ labelTransfer_liger <- function(liger.obj, sce.list, annotation.col="annotation"
   nn.list <- getNNlist(cross.dataset.NN, is.seurat = F)
   predicted.labels <- 
     map_dfr(nn.list, ~ propagateNNannotation(.x, annotation)) %>%
-    mutate(cell=names(nn.list))
+    dplyr::mutate(cell=names(nn.list))
   query.metadata <- predicted.labels %>%
-    filter(cell %in% colnames(small.seu.liger)[which(small.seu.liger$orig.ident==query)]) %>%
+    dplyr::filter(cell %in% colnames(small.seu.liger)[which(small.seu.liger$orig.ident==query)]) %>%
     column_to_rownames("cell") 
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = query.metadata)
   return(seurat.list)
@@ -217,7 +217,7 @@ labelTransfer_conos <- function(conos.out, sce.list, annotation.col="annotation"
   annotation <- setNames(annotation[,1], rownames(annotation))
   ## propagate labels
   new.label.probabilities <- conos.out$propagateLabels(labels = annotation, verbose = T, fixed.initial.labels=T)
-  new.annot <- setNames(colnames(new.label.probabilities)[apply(new.label.probabilities,1,which.max)], rownames(new.label.probabilities))
+  new.annot <- setNames(colnames(new.label.probabilities)[apply(new.label.probabilities, 1, function(x) which.max(x)[1]) ], rownames(new.label.probabilities))
   score <- apply(new.label.probabilities, 1, max)
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = data.frame(predicted.id = new.annot[colnames(seurat.list[[query]])],
                                                                                   score = score[colnames(seurat.list[[query]])]))
@@ -244,7 +244,7 @@ run_SeuratCCA <- function(sce.list, integrate_features, reference="RNA", query="
   ## Calculate CCA anchors
   transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]], 
                                           features = integrate_features, 
-                                          reduction = "lsi")
+                                          reduction = "cca")
   return(list(model=transfer.anchors, input=seurat.list))
   }
 #' LIGER NMF model
@@ -260,7 +260,11 @@ run_SeuratCCA <- function(sce.list, integrate_features, reference="RNA", query="
 run_liger <- function(sce.list, integrate_features, reference="RNA", query="ATAC"){
   data.list <- map(sce.list, ~ assay(.x, "counts"))
   liger.obj <- createLiger(data.list)
-  liger.obj@norm.data <- map(sce.list, ~ assay(.x, "cpm"))
+  liger.obj@norm.data <- map(sce.list, ~ assay(.x, "logcounts"))
+  liger.obj@norm.data[[query]] <- Matrix(logcounts(sce.list[[query]]))
+  ## Select genes
+  integrate_features <- integrate_features[which(integrate_features %in% rownames(liger.obj@norm.data[[reference]]) &
+                                                   integrate_features %in% rownames(liger.obj@norm.data[[query]]))]
   liger.obj@var.genes <- integrate_features
   ## Scale data
   liger.obj <- scaleNotCenter(liger.obj)

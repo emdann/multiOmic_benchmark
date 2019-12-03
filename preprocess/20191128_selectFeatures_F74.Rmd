@@ -1,0 +1,37 @@
+---
+title: "Feature selection F74"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(UpSetR)
+source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
+```
+
+## Count gmat
+Read input datasets
+```{r}
+atac.count.sce <- readRDS("~/my_data/F74_ATAC_snapAtac_processed.RDS")
+atac.bgmat.sce <- readRDS("~/my_data/F74_ATAC_snapAtac_processed_bgmat.RDS")
+rna.sce <- readRDS("~/my_data/F74_RNA_seurat_processed.RDS")
+```
+
+Select features
+```{r}
+hvg.rna <- select_highlyVariable(rna.sce)
+hcg.atac <- select_highlyCovered(atac.bgmat.sce, frac_cells = 0.15)
+hvg.atac <- select_highlyVariable(atac.count.sce)
+
+feat.ls <- list(HVG.ref=hvg.rna, HCG.atac=hcg.atac, HVG.atac=hvg.atac)
+
+upset(fromList(feat.ls))
+```
+
+Save features
+```{r}
+write(union(hvg.rna, hcg.atac), "~/my_data/intFeatures_unionHVGnHCG_F74_bgmat.txt")
+write(hvg.rna, "~/my_data/intFeatures_referenceHVG_F74_bgmat.txt")
+write(union(hvg.rna, hvg.atac), "~/my_data/intFeatures_unionHVGnHVG_F74_gmat.txt")
+```
+

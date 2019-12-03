@@ -5,8 +5,9 @@
 library(Seurat)
 
 select_highlyVariable <- function(sce, nfeatures=2000){
-  HVGs <- VariableFeatures(FindVariableFeatures(as.Seurat(sce), nfeatures = nfeatures, 
-                                                selection.method="mvp", dispersion.cutoff=c(0.5, 10), mean.cutoff=c(0.0125, 6)))
+  HVGs <- VariableFeatures(FindVariableFeatures(as.Seurat(sce, counts = "counts",data = "logcounts"), nfeatures = nfeatures
+                                                selection.method="mvp", dispersion.cutoff=c(0.5, 10), mean.cutoff=c(0.0125, 6)
+                                                ))
   HVGs
   }
 
