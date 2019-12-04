@@ -72,11 +72,12 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
 }
 ```
 
+
 ```{r, fig.height=8, fig.width=18}
 ## make cell type palette
 cell.types <- levels(seu.cca$RNA$annotation)
 cell.type.pal <- brewer_palette_4_values(cell.types, palette = "Set1") %>% setNames(cell.types)
-# atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:16)
+# atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "UMAP", dims=1:16)
 
 ## Embedding RNA
 orig.RNA.seu <- as.Seurat(orig.RNA)
@@ -86,17 +87,18 @@ orig.RNA.seu <- RunPCA(orig.RNA.seu)
 orig.RNA.seu <- RunUMAP(orig.RNA.seu, dims=1:40)
 
 
-ggpubr::ggarrange(
+umap_labels_pl <- ggpubr::ggarrange(
   plotlist = list(
-    DimPlot(orig.RNA.seu, reduction = "umap", group.by = "annotation", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("RNA"),
-    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("CCA"),
-    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Liger"),
-    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=TRUE) + ggtitle("Conos")
-  ),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("CCA") + theme(axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Conos") + theme(axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Liger") + theme( axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq") + theme(axis.ticks=element_blank(), axis.text = element_blank())
+    ) ,
   common.legend = TRUE, ncol=4, nrow=1
-) +
-  ggsave(paste0(outdir, "umap_labels.png"), width=17, height = 6)
+  ) 
 
+umap_labels_pl +
+  ggsave(paste0(outdir, "umap_labels.png"), width=14, height = 5)
 
 ```
 
@@ -340,7 +342,40 @@ bind_rows(knn_score_df, knn_score_null_df) %>%
   ylab("ECDF") + xlab("Fraction of KNNs with shared label") +
   ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 6, width=7)
 ```
+```{r}
+bind_rows(knn_score_df, knn_score_null_df) %>%
+  filter(method=="CCA") %>%
+  ggplot(aes(KNN_score, color=method)) +
+  stat_ecdf( aes(alpha=data), size=1) +
+  # stat_ecdf(data=. %>% filter(data=="true"), size=1) +
+  # facet_grid(method~.) +
+  scale_alpha_discrete( range=c(0.5,1), name="") +
+  scale_color_brewer(palette = "Set1") +
+  # geom_text(data= . %>% distinct(method, D, p.val), 
+  #           x=1, y=0.05, hjust=1,
+  #           aes(label=glue("KNN score = {round(D, 3)}, p.value: {p.val}"), y=c(0.90, 0.95, 1))) +
+  theme_bw(base_size = 16) +
+  ylab("ECDF") + xlab("Fraction of KNNs with shared label") +
+  theme(legend.position = "none") +
+  ggsave(paste("~/multiOmic_benchmark/report/output/","KNN_score_ecdf.png"), height = 3, width=3)
+```
 
+
+```{r}
+KNN_purity_pl <- bind_rows(knn_score_df, knn_score_null_df) %>%
+  group_by(method) %>%
+  summarise(D=max(D)) %>%
+  mutate(method=c(CCA='CCA', conos="Conos", liger="Liger")[method]) %>%
+  ggplot(aes(method, D, fill=method)) +
+  geom_col() +
+  scale_fill_brewer(palette = "Set1") +
+  theme_bw(base_size = 16) +
+  ylim(0,1) +
+  ylab("KNN purity") + xlab("") 
+
+KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 5, width=5) +
+  ggtitle("Binary GMAT - feature union")
+```
 
 <!-- #### Which cells are inconsistently aligned? -->
 <!-- ```{r, fig.width=14, fig.height=10} -->

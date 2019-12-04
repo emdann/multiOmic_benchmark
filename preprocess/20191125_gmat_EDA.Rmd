@@ -7,6 +7,10 @@ output: html_notebook
 library(tidyverse)
 library(SingleCellExperiment)
 library(Seurat)
+
+## Make output directory
+outdir <- "~/multiOmic_benchmark/report/output/20191125_gmat_EDA/"
+ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
 ```
 
 Explore distributions and statistics of gmat and gene expression, in order to instruct feature selection for integration
@@ -67,6 +71,8 @@ gene.mean.df %>%
 ### Embedding on highly-variable features from the gene matrix gives weird subclustering
 Cells are embedded using Latent Semantic Indexing 
 ```{r}
+atac.seu <- as.Seurat(atac.sce, counts = "counts")
+atac.seu <- NormalizeData(atac.seu) 
 atac.seu <- ScaleData(atac.seu) %>% RunLSI(n=30, reduction.name="lsi.activity") %>% RunUMAP(dims=1:30, reduction="lsi.activity", reduction.name="umap.activity")
 
 pl1 <- DimPlot(atac.seu, reduction = "umap.activity", group.by="seurat_clusters", label = T) + ggtitle("gmat - HV features")
@@ -150,8 +156,6 @@ CombinePlots(list(pl1, pl2), legend = "top")
 tcells.sce <- atac.sce[,which(as.numeric(atac.sce$seurat_clusters) %in% c(1:9))]
 tcells.seu <- atac.seu[,which(as.numeric(atac.seu$seurat_clusters) %in% c(1:9))]
 
-tcells.seu
-tcells.sce
 ```
 ```{r}
 atac.gene.frac.tcells <- as.matrix(logcounts(tcells.sce)) %>% apply(1, function(x) sum(x!=0))
@@ -176,13 +180,15 @@ tcells.seu <- FindVariableFeatures(tcells.seu, selection.method = "mvp", dispers
                                  mean.cutoff = c(0.5,5)
                                  )
 
-VariableFeaturePlot(tcells.seu, assay = "ACTIVITY")
+VariableFeaturePlot(tcells.seu)
 ```
 
 ```{r}
-tcells.seu <- ScaleData(tcells.seu) %>% 
-  RunLSI(n=30, reduction.name="lsi.activity") %>% 
-  RunUMAP(dims=1:30, reduction="lsi.activity", reduction.name="umap.activity")
+tcells.seu <- NormalizeData(tcells.seu)
+tcells.seu <- ScaleData(tcells.seu)
+
+tcells.seu <- RunLSI(tcells.seu, n=30, reduction.name="lsi.activity", scale.max = NULL) 
+tcells.seu <- RunUMAP(tcells.seu, dims=1:30, reduction="lsi.activity", reduction.name="umap.activity")
 
 pl1 <- DimPlot(tcells.seu, reduction = "umap.activity", group.by="seurat_clusters", label = T)
 pl2 <- DimPlot(tcells.seu, reduction = "UMAP", group.by="seurat_clusters", label=T)
@@ -323,16 +329,15 @@ logcounts(tcells.bimod.sce) <-
 
 tcells.bimod.seu <- as.Seurat(tcells.bimod.sce)
 VariableFeatures(tcells.bimod.seu ) <- names(which(Matrix::rowSums(tcells.bimod.seu) > 500))
-
 tcells.bimod.seu <- RunLSI(tcells.bimod.seu, n=50, scale.max = NULL)
-
 tcells.bimod.seu <- RunUMAP(tcells.bimod.seu, reduction = "lsi", dims = 1:50)
 
-pl1 <- DimPlot(tcells.bimod.seu, reduction = "umap", group.by="seurat_clusters", label = T) + ggtitle("gmat binary")
-pl2 <- DimPlot(tcells.seu, reduction = "umap.activity", group.by="seurat_clusters", label = T) + ggtitle("gmat counts")
-pl3 <- DimPlot(tcells.seu, reduction = "UMAP", group.by="seurat_clusters", label=T) + ggtitle("bmat")
+pl1 <- DimPlot(tcells.bimod.seu, reduction = "umap", group.by="seurat_clusters", label = T) + ggtitle("Gene accessibility (binary)")
+pl2 <- DimPlot(tcells.seu, reduction = "umap.activity", group.by="seurat_clusters", label = T) + ggtitle("Gene accessibility (counts)")
+pl3 <- DimPlot(tcells.seu, reduction = "UMAP", group.by="seurat_clusters", label=T) + ggtitle("Genomic bins")
 
-CombinePlots(list(pl2, pl1, pl3), legend = "top")
+CombinePlots(list(pl3, pl2, pl1) %>% map(~ .x + theme(axis.ticks = element_blank(), axis.text=element_blank())), legend = "top", nrow=1) +
+  ggsave(paste0(outdir, "gmatCountsVSgmatBin.png"), width=10, height = 4)
 ```
 
 Selecting features based on coverage still enables better segregation of clusters compared to the RNA HVGs.
