@@ -105,16 +105,18 @@ orig.RNA.seu <- RunUMAP(orig.RNA.seu, dims=1:30)
 ## Embed ATAC
 atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:20)
 
-ggpubr::ggarrange(
+umap_labels_pl <- ggpubr::ggarrange(
     DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal) + ggtitle("scRNA-seq"),
   plotlist = list(
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=F) + ggtitle("scATAC-seq - CCA"),
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=F) + ggtitle("scATAC-seq - Liger"),
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=F) + ggtitle("scATAC-seq - Conos")
     ),
-  common.legend = TRUE, ncol=4, nrow=1
-  ) +
-  ggsave(paste0(outdir, "umap_labels.png"), width=18, height = 8)
+  common.legend = TRUE, ncol=2, nrow=2
+  ) 
+
+umap_labels_pl +
+  ggsave(paste0(outdir, "umap_labels.png"), width=12, height = 12)
 
 
 ```
@@ -131,7 +133,7 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
   stop("Non corresponding cell names")
 }
 
-ggpubr::ggarrange(
+uamp_labels_pl <- ggpubr::ggarrange(
   plotlist = list(
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA", cols=cell.type.pal) + 
       scale_color_manual(values = cell.type.pal, na.value="grey80") +
@@ -158,7 +160,7 @@ ggpubr::ggarrange(
 Quantifies the uncertainty of the prediction. Calculated differently for every method, but used to define which cells are "unassigned".
 
 
-```{r}
+```{r, fig.height=7, fig.width=9}
 orig.composition <- orig.RNA$annotation
 orig.frac <- table(orig.composition)/length(orig.composition)
 
@@ -181,43 +183,28 @@ predict_score_hist <-
   pred.labels.df %>%
   ggplot(aes(score, fill=method)) +
   geom_histogram(position="identity", alpha=0.8, bins=40) +
-  facet_grid(method ~.) +
+  facet_grid(. ~ method) +
   scale_fill_brewer(palette="Set1") +
   xlab("Label prediction score") +
   theme_bw(base_size = 16) +
   theme(legend.position = "top")
 
-cutoffs <- seq(0,1,0.05)
-predict_score_cumedist <-
-  pred.labels.df %>%
-  group_by(method) %>%
-  mutate(bins=cut(score, breaks = cutoffs)) %>%
-  mutate(score=as.numeric(str_remove_all(as.character(bins), ".+,|]"))) %>%
-  ggplot(aes(score, color=method)) +
-  stat_ecdf(size=0.8, alpha=0.7) +
-  scale_color_brewer(palette = "Set1") +
-  ylab("Fraction of unassigned cells") +
-  xlab("Prediction score cutoff") +
-  theme_bw(base_size = 16) +
-  xlim(0,1) +
-  coord_fixed() +
-  guides(color="none") 
+umap.score.cca <- FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  , coord.fixed = TRUE) + 
+  scale_color_viridis_c(name="Prediction\nscore") + ggtitle("CCA") 
+umap.score.conos <- FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos", coord.fixed = TRUE) + 
+  scale_color_viridis_c() + ggtitle("Conos") + guides(color="none")
+umap.score.liger <- FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger", coord.fixed = TRUE) + 
+  scale_color_viridis_c() + ggtitle("Liger") + guides(color="none")
 
-ggarrange(predict_score_hist, predict_score_cumedist, common.legend = TRUE, widths = c(0.8, 1.2),
-          labels=c("A", "B")) +
-  ggsave(paste0(outdir, "prediction_score_distribution.png"), height = 6, width = 10)
-```
+predict_score_umaps <- ggpubr::ggarrange(
+  plotlist = list(umap.score.cca + guides(color="none"), umap.score.conos, umap.score.liger),
+  ncol=3, nrow=1, legend = "bottom", common.legend = T
+)
 
-```{r, fig.width=16, fig.height=8}
-ggpubr::ggarrange(
-  plotlist = list(
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_CCA"  , coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("CCA"),
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Liger", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Liger"),
-    FeaturePlot(atac.seu, reduction = "umap.snap", feature = "score_Conos", coord.fixed = TRUE) + scale_color_viridis_c() + ggtitle("Conos")
-  ),
-  common.legend = TRUE, ncol=3, nrow=1
-) +
-  ggsave(paste0(outdir, "prediction_score_umaps.png"), height = 7, width=14)
+leg <- get_legend(umap.score.cca)
+
+plot_grid(plotlist = list(predict_score_hist + theme(legend.position = "none"), NULL,predict_score_umaps, leg), nrow=2, ncol=2, rel_heights = c(1,1.2), rel_widths = c(2,0.5)) +
+  ggsave(paste0(outdir, "prediction_score_distribution.png"), height = 6, width = 9)
 ```
 
 
@@ -265,6 +252,8 @@ pred.labels.df %>%
   bind_rows(orig.frac.df) %>%
   mutate(orig.rank = orig.rank.df[predicted.id,]) %>%
   mutate(predicted.id=factor(predicted.id, levels=rownames(orig.rank.df)))%>%
+  ungroup() %>%
+  mutate(method=ifelse(method=="original.RNA", "scRNA-seq", method)) %>%
   # select(method, predicted.id, frac.label) %>%
   # distinct() %>%
   ggplot(aes(predicted.id, frac.label, fill=mean.score, color=mean.score)) +
@@ -273,11 +262,11 @@ pred.labels.df %>%
   coord_flip() +
   # geom_line(aes(group=method)) +
   facet_wrap(method~., nrow=1, ncol=4, scales="free_x") +
-  scale_color_viridis_c() +
-  scale_fill_viridis_c() +
-  ylab("Fraction of cells") +
+  scale_color_viridis_c(name="Prediction\nscore") +
+  scale_fill_viridis_c(name="Prediction\nscore") +
+  ylab("Fraction of cells") + xlab("") +
   theme_bw(base_size = 16) +
-  ggsave(paste0(outdir, "cell_type_composition_bars.png"), width = 15, height = 5)
+  ggsave(paste0(outdir, "cell_type_composition_bars.png"), width = 9, height = 4)
 ```
 
 <!-- Does the uncertainty depend on the size of the cluster? -->
@@ -322,29 +311,32 @@ knn_score_df <-
   # imap( ~ data.frame(KNN_score = .x$KNN_score, cell= names(.x$KNN_score), D=.x$D, p.val=.x$p.val, method=.y)) %>%
   purrr::reduce(bind_rows) %>%
   dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score)) %>%
-  mutate(data="true")
+  mutate(data="True")
 knn_score_null_df <-
   list(CCA=knn.score.CCA, conos=knn.score.conos, liger=knn.score.liger) %>%
   imap( ~ data.frame(KNN_score = .x$null, D=.x$D, p.val=.x$p.val, method=.y)) %>%
   # imap( ~ data.frame(KNN_score = .x$KNN_score, cell= names(.x$KNN_score), D=.x$D, p.val=.x$p.val, method=.y)) %>%
   purrr::reduce(bind_rows) %>%
   dplyr::mutate(KNN_score=ifelse(is.na(KNN_score), 0, KNN_score)) %>%
-  mutate(data="null")
+  mutate(data="Null")
 
 
-bind_rows(knn_score_df, knn_score_null_df) %>%
+knn_score_pl <- bind_rows(knn_score_df, knn_score_null_df) %>%
   ggplot(aes(KNN_score, color=method)) +
   stat_ecdf( aes(alpha=data), size=1) +
   # stat_ecdf(data=. %>% filter(data=="true"), size=1) +
-  facet_grid(method~.) +
+  facet_grid(.~method) +
   scale_alpha_discrete( range=c(0.5,1), name="") +
   scale_color_brewer(palette = "Set1") +
+  guides(color='none') +
   geom_text(data=. %>% distinct(method, D, p.val), 
             x=1, y=0.05, hjust=1,
-            aes(label=glue("KNN score = {round(D, 3)}, p.value: {p.val}"), y=c(0.90, 0.95, 1))) +
+            aes(label=glue("KNN score = {round(D, 3)}\np.value: {p.val}"), y=c(0.90, 0.95, 1))) +
   theme_bw(base_size = 16) +
-  ylab("ECDF") + xlab("Fraction of KNNs with shared label") +
-  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 6, width=7)
+  ylab("ECDF") + xlab("Fraction of KNNs with shared label") 
+
+knn_score_pl+
+  ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 4, width=9)
 ```
 
 ```{r, fig.height=5, fig.width=13}
@@ -359,6 +351,12 @@ compareCluster("CD14+ Monocytes") +
   ggsave(paste0(outdir, 'CD14Monocytes_cluster.png'), width=14, height = 4)
 compareCluster("CD8 Naive")
 ```
+
+Assemble figure
+```{r}
+
+```
+
 
 <!-- ciaone -->
 <!-- ```{r, fig.height=8, fig.width=7, message=FALSE} -->
