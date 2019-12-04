@@ -106,17 +106,18 @@ orig.RNA.seu <- RunUMAP(orig.RNA.seu, dims=1:30)
 atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.snap", dims=1:20)
 
 umap_labels_pl <- ggpubr::ggarrange(
-    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq"),
+    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq") +
+       theme( axis.ticks=element_blank(), axis.text = element_blank()),
   plotlist = list(
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("scATAC-seq - CCA"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("scATAC-seq - Liger"),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("scATAC-seq - Conos")
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("scATAC-seq - CCA")  + theme( axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("scATAC-seq - Liger") + theme( axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("scATAC-seq - Conos") + theme( axis.ticks=element_blank(), axis.text = element_blank())
     ),
   common.legend = TRUE, ncol=2, nrow=2
   ) 
 
 umap_labels_pl +
-  ggsave(paste0(outdir, "umap_labels.png"), width=9, height = 9)
+  ggsave(paste0(outdir, "umap_labels.png"), width=8, height = 8)
 
 
 ```
@@ -124,9 +125,9 @@ umap_labels_pl +
 umap_labels_pl_long <- ggpubr::ggarrange(
   plotlist = list(
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("CCA") + theme(axis.ticks=element_blank(), axis.text = element_blank()),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Conos") + theme(axis.title.y = element_blank(), axis.ticks=element_blank(), axis.text = element_blank()),
-    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Liger") + theme(axis.title.y = element_blank(), axis.ticks=element_blank(), axis.text = element_blank()),
-    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq") + theme(axis.title.y = element_blank(), axis.ticks=element_blank(), axis.text = element_blank())
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Conos") + theme(axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Liger") + theme( axis.ticks=element_blank(), axis.text = element_blank()),
+    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq") + theme(axis.ticks=element_blank(), axis.text = element_blank())
     ) ,
   common.legend = TRUE, ncol=4, nrow=1
   ) 
@@ -147,7 +148,7 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
   stop("Non corresponding cell names")
 }
 
-uamp_labels_pl <- ggpubr::ggarrange(
+umap_labels_pl <- ggpubr::ggarrange(
   plotlist = list(
     DimPlot(atac.seu, reduction = "umap.snap", group.by = "predicted.id_CCA", cols=cell.type.pal) + 
       scale_color_manual(values = cell.type.pal, na.value="grey80") +
@@ -212,7 +213,7 @@ umap.score.liger <- FeaturePlot(atac.seu, reduction = "umap.snap", feature = "sc
 
 predict_score_umaps <- ggpubr::ggarrange(
   plotlist = list(umap.score.cca + guides(color="none"), umap.score.conos, umap.score.liger) %>%
-    map(~ .x + theme(axis.title.y = element_blank(), axis.ticks=element_blank(), axis.text = element_blank())),
+    map(~ .x + theme(axis.ticks=element_blank(), axis.text = element_blank())),
   ncol=3, nrow=1, legend = "bottom", common.legend = T
 )
 
@@ -355,9 +356,25 @@ knn_score_pl <- bind_rows(knn_score_df, knn_score_null_df) %>%
   theme_bw(base_size = 16) +
   ylab("ECDF") + xlab("Fraction of KNNs with shared label") 
 
-knn_score_pl+
+knn_score_pl +
   ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 4, width=9)
 ```
+```{r}
+KNN_purity_pl <- bind_rows(knn_score_df, knn_score_null_df) %>%
+  group_by(method) %>%
+  summarise(D=max(D)) %>%
+  mutate(method=c(CCA='CCA', conos="Conos", liger="Liger")[method]) %>%
+  ggplot(aes(method, D, fill=method)) +
+  geom_col() +
+  scale_fill_brewer(palette = "Set1") +
+  theme_bw(base_size = 16) +
+  ylim(0,1) +
+  ylab("KNN purity") + xlab("") 
+
+KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 5, width=5)
+```
+
+
 
 ```{r, fig.height=5, fig.width=13}
 compareCluster <- function(clust){
@@ -376,17 +393,24 @@ Assemble figure
 ```{r, fig.height=9, fig.width=12}
 fig.1 <- plot_grid(
   # umap_labels_pl,
-  plotlist = list(predict_score_hist + theme(legend.position = "none"), predict_score_umaps, knn_score_pl + guides(alpha="none")),
-  rel_heights = c(1, 1, 1.3), rel_widths = c(2,1), nrow=3)
+  plotlist = list(predict_score_hist + theme(legend.position = "none"), 
+                  predict_score_umaps, 
+                  knn_score_pl + guides(alpha="none")
+                  ),
+  rel_heights = c(1, 1.1, 1.3), rel_widths = c(2,1), nrow=3, align = "v", axis = "l"
+  )
+
+fig.1.leg <- plot_grid(fig.1, plot_grid(plotlist = list(NULL, leg, NULL), nrow=3, ncol=1), rel_widths = c(3,1), align = "h", axis = "top")
 
 fig.2 <- plot_grid(
   umap_labels_pl_long,
   ct_comp_pl + theme(legend.position = "none"),
   nrow=2, ncol=1, align = "v", axis = "l"
   )
+fig.2 + ggsave(paste0(outdir, "fig_PBMC_celltypes.png"), width=13, height = 8)
 
-plot_grid( fig.2, fig.1, rel_widths=c(1.5,1)) +
-  ggsave(paste0(outdir, "fig_PBMC.png"), width=18, height = 7)
+plot_grid( fig.2, fig.1.leg, nrow=2, align="v", axis = "l") +
+  ggsave(paste0(outdir, "fig_PBMC.png"), width=11, height = 17)
 ```
 
 
