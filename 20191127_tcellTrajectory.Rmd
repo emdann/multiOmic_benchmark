@@ -21,7 +21,8 @@ source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
 outdir <- "~/multiOmic_benchmark/report/output/20191127_tcellTrajectory/"
 ifelse(!dir.exists(outdir), dir.create(outdir), FALSE)
 ```
-
+ 
+ 
 Based on the results of my benchmark, I set out to align expression and accessibility profiles from the F74 developing thymus dataset to detect changes in accessibility along pseudotime trajectories. While the benchmark was based on the task of label propagation, I here use the two most faithful methods (Seurat CCA and Conos) to achieve a common embedding of ATAC-seq and RNA-seq cells.
 
 Load datasets.
@@ -135,7 +136,7 @@ DimPlot(tcells.ATAC.union, reduction = "umap", group.by = "seurat_clusters", lab
 
 Makes imputed transcriptome profile for the ATAC-seq cells to allow co-embedding
 
-```{r, fig.width=12, fig.height=5}
+```{r, fig.width=12, fig.height=5, eval=FALSE}
 sce.list <- tcells.sce.list
 reference = "RNA"
 query = "ATAC" 
@@ -162,8 +163,12 @@ coembed <- RunPCA(coembed, features = integrate_features_union, verbose = FALSE)
 coembed <- RunUMAP(coembed, dims = 1:30)
 
 coembed <- AddMetaData(coembed, metadata = ifelse(colnames(coembed) %in% colnames(seurat.list[[reference]]), reference, query), col.name = "tech")
+```
 
-DimPlot(coembed, group.by = c('tech', "annotation"))
+
+```{r, echo=FALSE}
+## Load output for quick knitting
+coembed <- readRDS("~/my_data/Tcells_CCA_integration_seurat_20191203.Rmd")
 ```
 
 <!-- Run Conos -->
@@ -189,18 +194,8 @@ DimPlot(coembed, group.by = c('tech', "annotation"))
 
 <!-- ``` -->
 
-```{r, fig.height=20, fig.width=9}
-FeaturePlot(coembed, features = t.cell.markers$stage.markers, split.by = "tech", cols = viridis::viridis(n=100)) + ggtitle("Stage Markers")
-```
-```{r, fig.height=25, fig.width=9}
-FeaturePlot(coembed, features = t.cell.markers$known.markers, split.by = "tech", slot = "data", cols = viridis::viridis(n=100))
-```
-```{r}
-FeaturePlot(coembed, features = t.cell.markers$recombination, split.by = "tech", slot = "data", cols = viridis::viridis(n=100)) 
-```
-
 #### Transfer labels on ATAC dataset
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=10, fig.height=5, eval=FALSE}
 celltype.predictions <- TransferData(anchorset = transfer.anchors, 
                                      refdata = seurat.list[[reference]]$annotation, 
                                      weight.reduction = seurat.list$ATAC[["LSI"]])
@@ -217,6 +212,9 @@ coembed@meta.data <-
   dplyr::mutate(annotation=ifelse(is.na(annotation) & prediction.score.max > 0.5, predicted.id, annotation)) %>%
   dplyr::mutate(annotation=ifelse(annotation=="SP (2)", NA, annotation)) %>%
   column_to_rownames()
+```
+
+```{r}
 CombinePlots(
   list(DimPlot(coembed, group.by = c("predicted.id"), cols = cell.type.pal) + ggtitle("prediction"),
   DimPlot(coembed, group.by = c("annotation"), cols = cell.type.pal) + ggtitle("Original + prediction")),
@@ -235,7 +233,7 @@ Identify cell of origin among the DN cells based on expression of IGLL1 and CD34
 ```{r, fig.height=10, fig.width=10}
 FeaturePlot(coembed, features = c("IGLL1", "CD34"), split.by = "tech", slot = "data", cols = viridis::viridis(n=100))
 ```
-```{r}
+```{r, eval=FALSE}
 cell.oo <-
   coembed@meta.data %>% 
   rownames_to_column("cell") %>%
@@ -261,7 +259,7 @@ coembed <- AddMetaData(coembed, ifelse(colnames(coembed)==cell.oo, TRUE, FALSE),
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 merged.sce <- SingleCellExperiment(list(counts=coembed@assays$RNA@counts, logcounts=coembed@assays$RNA@data), colData=coembed@meta.data[, c("annotation", "tech", "iroot_cell")],
                      reducedDims = map(coembed@reductions, ~ .x@cell.embeddings))
 
@@ -272,7 +270,7 @@ saveRDS(object = integrate_features_union, "~/my_data/intFeatures_Tcells_CCA_int
 I infer pseudotime using the diffusion pseudotime algorithm as implemented in scanpy. Making an R/reticulate wrapper for this function would be nice, but for now, see `multiOmic_benchmark/DPT_tcells.ipynb`.
 
 Read scanpy output and save in R object.
-```{r}
+```{r, eval=FALSE}
 dpt <- read.csv('~/my_data/Tcells_CCA_integration_20191127_scanpy_dpt.csv') %>%
   select(X, dpt_pseudotime)
 
@@ -307,7 +305,7 @@ coembed.umaps.pl +
 ```{r, fig.height=8, fig.width=10}
 coembed@meta.data %>%
   dplyr::mutate(`DPT rank`=dense_rank(dpt_pseudotime)) %>%
-  ggplot(aes(dpt_pseudotime)) +
+  ggplot(aes(`DPT rank`)) +
   geom_histogram(aes(fill=annotation), bins=50) +
   facet_grid(annotation~tech, scales="free_y") +
   theme_bw(base_size = 16) +
@@ -363,16 +361,6 @@ Correlation between global accessibility and pseudotime ordering.
 
 ```{r, fig.width=15, fig.height=8}
 snap.out <- readRDS(file = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
-# atac.dpt.df <- 
-#   coembed@meta.data %>%
-#   rownames_to_column("cell") %>%
-#   filter(tech=="ATAC") %>%
-#   # group_by(tech) %>%
-#   dplyr::mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
-#   mutate(dpt_bin=cut(dpt_rank, breaks = 100)) %>%
-#   mutate(dpt_bin=as.numeric(dpt_bin)) %>%
-#   # ungroup() %>%
-#   select(cell,tech, annotation, prediction.score.max, dpt_bin, dpt_pseudotime)
 
 groups <- dpt.df[dpt.df$tech=="ATAC", c("cell", "dpt_bin")]
 bmat <- snap.out@bmat[str_remove(groups$cell, "ATAC_"),]
@@ -490,7 +478,7 @@ I initially wanted to call peaks from SnapATAC clusters, then build a cell x pea
 <!-- --- -->
 
 Alternative: load peak matrix from cellranger and add to snap object
-```{r}
+```{r, eval=FALSE}
 filt.peaks <- Read10X_h5("~/my_data/filtered_peak_bc_matrix.h5")
 peaks.mat <- str_split(rownames(filt.peaks), pattern = ":|-") %>% map(rbind) %>% purrr::reduce(rbind)
 peaks.gr <- GRanges(peaks.mat[,1], IRanges(as.numeric(peaks.mat[,2]), as.numeric(peaks.mat[,3])))
@@ -500,7 +488,7 @@ snap.pmat
 
 Calculating deviations in TF accessibility using ChromVAR. This is a measure of how much is motif accessibility in each cell is enriched compared to all the cells and general cell coverage. While SnapATAC has an wrapper around ChromVAR that outputs the deviation matrix, I just take the code from that function and run every step separately to keep the useful outputs and statistics of chromVAR.
 
-```{r}
+```{r, eval=FALSE}
 snap.pmat = makeBinary(snap.pmat, "pmat")
 
 obj = snap.pmat
@@ -532,7 +520,7 @@ var <- computeVariability(dev)
 ```
 
 Save
-```{r}
+```{r, eval=FALSE}
 rowData(dev) %<>%
   as.tibble(rownames="motif") %>%
   full_join(var) %>%
@@ -541,6 +529,11 @@ rowData(dev) %<>%
 
 saveRDS(dev, "~/my_data/Tcells_peaks/Tcells_chromVarOutput.RDS")  
 ```
+
+```{r, echo=FALSE}
+dev <- readRDS("~/my_data/Tcells_peaks/Tcells_chromVarOutput.RDS")  
+```
+
 
 Visualize deviation scores of the most variable motifs, ordered in pseudotime.
 
@@ -587,7 +580,7 @@ smooth.gexmat %>%
   )
 ```
 
-Compare motif accessibility trend with gene expression trend along pseudotime.
+Compare motif accessibility trend with gene expression trend along pseudotime. I find both examples of correlation between accessibility and TF expression (e.g. RUNX2, ELK3) and anti-correlation (e.g. JUN, ETV6).
 
 ```{r}
 counts.topvar <- coembed@assays$RNA@data[tf.topvar[which(tf.topvar %in% rownames(coembed@assays$RNA@data))],dpt.order$cell]
@@ -600,7 +593,6 @@ mmat.df <- reshape2::melt(mmat.topvar, varnames=c("gene", "cell")) %>%
   mutate(cell=str_c("ATAC_", cell)) %>%
   mutate(data="Motif deviation")
 
-plot.tfs <- c("RUNX3", "RUNX2")
 plot.tfs <- function(plot.tfs){
   bind_rows(gex.df, mmat.df) %>%
   left_join(dpt.df[, c("cell", "dpt_pseudotime", "annotation")], by="cell") %>%
@@ -615,6 +607,7 @@ plot.tfs <- function(plot.tfs){
   xlab("Pseudotime rank") +
   theme_bw(base_size = 16) 
 }
+
 tfs <- c("JUN", "FOSL2", "FOSL1", "FOS")
 
 pdf(paste0(outdir, "TF_plots.pdf"), width = 8, height = 5)
@@ -623,7 +616,7 @@ for (tf in tf.topvar) {
 }
 dev.off()
 
-map(list("JUN", "ELK3", "RUNX2", "REL", "FOS", "ETV6"), ~ plot.tfs(.x) + ggsave(paste0(outdir, paste0('TF_plot_',.x,".png")), width = 8, height=5))
+map(list("JUN", "ELK3", "RUNX2", "REL", "FOS", "ETV6", "TCF3"), ~ plot.tfs(.x) + ggsave(paste0(outdir, paste0('TF_plot_',.x,".png")), width = 8, height=5))
 ```
 
 
