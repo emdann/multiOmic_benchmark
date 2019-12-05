@@ -1,3 +1,4 @@
+
 ---
 title: "Pseudotime analysis of T-cells in developing thymus"
 output: html_notebook
@@ -383,6 +384,21 @@ dpt.pl +
   ggsave(paste0(outdir, "DPT_bins.png"), width=10, height = 7)
 ```
 
+```{r, fig.height=10}
+coembed.umaps.pl <- plot_grid(
+  DimPlot(coembed, group.by = c("tech")) + theme_classic(base_size = 16) + theme(legend.position = "top") ,
+  DimPlot(coembed, group.by = c("annotation"), cols = cell.type.pal, label = TRUE, label.size = 5) + theme_classic(base_size = 16) + theme(legend.position = "none"),
+  FeaturePlot(coembed, reduction = "umap", feature = "dpt_pseudotime") +
+    theme_classic(base_size = 16) +
+    scale_color_viridis_c(name="Diffusion pseudotime") + ggtitle("") + 
+    guides(color=guide_colorbar(barwidth = 10,title.position = "top")) +
+    theme(legend.position = "top", legend.justification = "center") ,
+  nrow=3, ncol=1, rel_heights = c(1.2,1,1.5)
+) 
+
+plot_grid(coembed.umaps.pl, dpt.pl, rel_widths=c(1,1.7)) +
+  ggsave(paste0(outdir, "tcells_figure.png"), width=10, height = 10)
+```
 
 <!-- Viz markers -->
 <!-- ```{r} -->
@@ -513,7 +529,7 @@ rse <- SummarizedExperiment(
 				 colData = DataFrame(Cell_Type=1:nrow(data.use), depth=Matrix::rowSums(data.use))
 	);
 rse <- addGCBias(rse, genome = genome);
-motifs <- getJasparMotifs(collection = "CORE", species=species);
+motifs <- getJasparMotifs(collection = "CORE", species=species)
 motif_mm <- matchMotifs(motifs, rse, genome = genome);
 dev <- computeDeviations(object = rse, annotations = motif_mm);
 var <- computeVariability(dev)
@@ -532,6 +548,16 @@ saveRDS(dev, "~/my_data/Tcells_peaks/Tcells_chromVarOutput.RDS")
 
 ```{r, echo=FALSE}
 dev <- readRDS("~/my_data/Tcells_peaks/Tcells_chromVarOutput.RDS")  
+```
+
+```{r}
+var %>%
+  mutate(signif=ifelse(p_value_adj < 0.01, "signif", NA)) %>%
+  mutate(rank=rank(-variability)) %>%
+  ggplot(aes(rank, variability, color=signif)) +
+  geom_point() +
+  ggrepel::geom_text_repel(data=. %>% filter(rank < 80 & rank > 50), aes(label=name)) +
+  geom_vline(xintercept = 50)
 ```
 
 
@@ -587,18 +613,18 @@ counts.topvar <- coembed@assays$RNA@data[tf.topvar[which(tf.topvar %in% rownames
 gex.df <- 
   reshape2::melt(as.matrix(counts.topvar), varnames=c("gene", "cell")) %>% 
   # rowid_to_column("dpt_order") %>%
-  mutate(data="Gene expression")
+  mutate(data="Gene\nexpression")
 mmat.df <- reshape2::melt(mmat.topvar, varnames=c("gene", "cell")) %>%
   # rowid_to_column("dpt_order") %>%
   mutate(cell=str_c("ATAC_", cell)) %>%
-  mutate(data="Motif deviation")
+  mutate(data="Motif\ndeviation")
 
 plot.tfs <- function(plot.tfs){
   bind_rows(gex.df, mmat.df) %>%
   left_join(dpt.df[, c("cell", "dpt_pseudotime", "annotation")], by="cell") %>%
   mutate(dpt_rank=dense_rank(dpt_pseudotime)) %>%
   drop_na(dpt_pseudotime) %>%
-    mutate(data=factor(data, levels=c("Gene expression", "smooth", "Motif deviation"))) %>%
+    mutate(data=factor(data, levels=c("Gene\nexpression", "smooth", "Motif\ndeviation"))) %>%
   filter(gene %in% plot.tfs) %>%
   ggplot(aes(dpt_rank, value, color=data)) +
   # geom_point(data=. %>% filter(data!="smooth"), aes(color=annotation), size=0.7, alpha=0.3) +
@@ -619,6 +645,23 @@ dev.off()
 map(list("JUN", "ELK3", "RUNX2", "REL", "FOS", "ETV6", "TCF3"), ~ plot.tfs(.x) + ggsave(paste0(outdir, paste0('TF_plot_',.x,".png")), width = 8, height=5))
 ```
 
+```{r, fig.height=12, fig.width=6}
+tfs <- c("RUNX2", "ELK3","JUN", "ETV6")
+plot.tfs(tfs)
+
+tf.list <- map(tfs, ~ plot.tfs(.x))
+tf.list <- map(tf.list, ~ .x + theme(legend.position = "none"))
+tf.list <- map_if(tf.list, c(TRUE, TRUE, TRUE, FALSE), ~ .x + theme(axis.title.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x=element_blank() ))
+
+tf.list
+plot_grid(plotlist = tf.list, align="v", axis="l", nrow=4, ncol=1, rel_heights = c(1,1,1,1.15)) +
+  ggsave(paste0(outdir, "TF_pl_fig.png"), height = 11, width = 5)
+```
+
+### Ways to optimize this analysis 
+
+- Improved motif database (more motifs, Jaspar2020 or HOCOMOCO)
+- Calling peaks on clusters ()
 
 
 <!-- ```{r, fig.width=14, fig.height=7} -->
