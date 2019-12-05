@@ -73,6 +73,7 @@ if (all(rownames(pred.conos) == rownames(pred.cca)) & all(rownames(pred.conos) =
 ```
 
 
+
 ```{r, fig.height=8, fig.width=18}
 ## make cell type palette
 cell.types <- levels(seu.cca$RNA$annotation)
@@ -91,14 +92,15 @@ umap_labels_pl <- ggpubr::ggarrange(
   plotlist = list(
     DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_CCA"  , cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("CCA") + theme(axis.ticks=element_blank(), axis.text = element_blank()),
     DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Conos", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Conos") + theme(axis.ticks=element_blank(), axis.text = element_blank()),
-    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Liger") + theme( axis.ticks=element_blank(), axis.text = element_blank()),
-    DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq") + theme(axis.ticks=element_blank(), axis.text = element_blank())
+    DimPlot(atac.seu, reduction = "UMAP", group.by = "predicted.id_Liger", cols=cell.type.pal, label=TRUE, repel=T, label.size = 3) + ggtitle("Liger") + theme( axis.ticks=element_blank(), axis.text = element_blank())
+    # DimPlot(orig.RNA.seu, group.by="annotation", label = TRUE, cols=cell.type.pal, label.size = 3, repel=T) + ggtitle("scRNA-seq") + theme(axis.ticks=element_blank(), axis.text = element_blank())
     ) ,
-  common.legend = TRUE, ncol=4, nrow=1
+  common.legend = TRUE, ncol=3, nrow=1
   ) 
 
+
 umap_labels_pl +
-  ggsave(paste0(outdir, "umap_labels.png"), width=14, height = 5)
+  ggsave(paste0(outdir, "umap_labels.png"), width=9, height = 4)
 
 ```
 
@@ -362,19 +364,23 @@ bind_rows(knn_score_df, knn_score_null_df) %>%
 
 
 ```{r}
-KNN_purity_pl <- bind_rows(knn_score_df, knn_score_null_df) %>%
+KNN_purity_pl <-
+  bind_rows(knn_score_df, knn_score_null_df) %>%
   group_by(method) %>%
   summarise(D=max(D)) %>%
   mutate(method=c(CCA='CCA', conos="Conos", liger="Liger")[method]) %>%
-  ggplot(aes(method, D, fill=method)) +
-  geom_col() +
+  ggplot(aes(method, D, fill=method, color=method)) +
+  geom_col(width=0.5) +
+  coord_flip() +
+  scale_color_brewer(palette = "Set1") +
   scale_fill_brewer(palette = "Set1") +
   theme_bw(base_size = 16) +
   ylim(0,1) +
-  ylab("KNN purity") + xlab("") 
-
-KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 5, width=5) +
-  ggtitle("Binary GMAT - feature union")
+  ylab("KNN purity") + xlab("") +
+  theme(legend.position = "top")
+KNN_purity_pl
+KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 3, width=6) +
+  ggtitle("Binary GMAT - HVG union")
 ```
 
 <!-- #### Which cells are inconsistently aligned? -->
@@ -401,105 +407,105 @@ KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 5, width=
 <!--   theme_bw(base_size = 16) -->
 <!-- ``` -->
 
-## Accessibility of markers
-Taking markers from Fig. S2 of JP's manuscript
-```{r, fig.height=13, fig.width=10, warning=FALSE, message=FALSE}
-thymus.markers <- c("PTPRC", "CD3G", "TYROBP","CD19","HOXA9",'FXYD2',"SH3TC1","CCR9","CD8A", "CD8B","PDCD1", "CRTAM","CD40LG","CCR6","FOXP3","SOX13","ZNF683","KLRD1","TNFSF11","VPREB1","MS4A1", "CLEC9A", "CLEC10A", "LAMP3", "IL3RA", "FCGR3B", "C2","TPSB2",
-                    'ITGA2B',"GYPA", "CDH5", "RGS5","CDH1", "PDGFRA","CRABP1")
-# pbmc.markers <- c("CD79A", "MS4A1", "CD8A", "CD8B", "LYZ")
-# thymus.markers <- list(Fb=c("PDGFRA", "COLEC11", "FBN1", "PI16"),
-#                        VSMC=c("PDGFRB", 'ACTA2', "RGS5"),
-#                        Endo=c("PECAM1", "CDH5","LYVE1"),
-#                        TEC = c("EPCAM", "FOXN1", "CCL25", "CCL19")
-#                        )
-thymus.markers.df <- imap(thymus.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>%
-  purrr::reduce(bind_rows)
+<!-- ## Accessibility of markers -->
+<!-- Taking markers from Fig. S2 of JP's manuscript -->
+<!-- ```{r, fig.height=13, fig.width=10, warning=FALSE, message=FALSE} -->
+<!-- thymus.markers <- c("PTPRC", "CD3G", "TYROBP","CD19","HOXA9",'FXYD2',"SH3TC1","CCR9","CD8A", "CD8B","PDCD1", "CRTAM","CD40LG","CCR6","FOXP3","SOX13","ZNF683","KLRD1","TNFSF11","VPREB1","MS4A1", "CLEC9A", "CLEC10A", "LAMP3", "IL3RA", "FCGR3B", "C2","TPSB2", -->
+<!--                     'ITGA2B',"GYPA", "CDH5", "RGS5","CDH1", "PDGFRA","CRABP1") -->
+<!-- # pbmc.markers <- c("CD79A", "MS4A1", "CD8A", "CD8B", "LYZ") -->
+<!-- # thymus.markers <- list(Fb=c("PDGFRA", "COLEC11", "FBN1", "PI16"), -->
+<!-- #                        VSMC=c("PDGFRB", 'ACTA2', "RGS5"), -->
+<!-- #                        Endo=c("PECAM1", "CDH5","LYVE1"), -->
+<!-- #                        TEC = c("EPCAM", "FOXN1", "CCL25", "CCL19") -->
+<!-- #                        ) -->
+<!-- thymus.markers.df <- imap(thymus.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>% -->
+<!--   purrr::reduce(bind_rows) -->
 
-marker.access.df <- atac.seu@assays$RNA@data[intersect(thymus.markers, rownames(atac.seu@assays$RNA)),] %>%
-  as.matrix() %>%
-  reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>%
-  full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>%
-  # full_join(thymus.markers.df) %>%
-  pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>%
-  dplyr::mutate(method=str_remove(method,".+_")) %>%
-  filter(method %in% c("CCA", "Liger", "Conos")) 
+<!-- marker.access.df <- atac.seu@assays$RNA@data[intersect(thymus.markers, rownames(atac.seu@assays$RNA)),] %>% -->
+<!--   as.matrix() %>% -->
+<!--   reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>% -->
+<!--   full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>% -->
+<!--   # full_join(thymus.markers.df) %>% -->
+<!--   pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>% -->
+<!--   dplyr::mutate(method=str_remove(method,".+_")) %>% -->
+<!--   filter(method %in% c("CCA", "Liger", "Conos"))  -->
 
-ordered_cell_types <- c("DN", "DP (Q)", "DP (P)", "SP (1)", "NK", "ILC3", "DC", "Mac", "Ery", "Fib")
+<!-- ordered_cell_types <- c("DN", "DP (Q)", "DP (P)", "SP (1)", "NK", "ILC3", "DC", "Mac", "Ery", "Fib") -->
 
-markers_pl <- 
-  marker.access.df %>%
-  mutate(predicted.id = case_when(str_detect(predicted.id, "CD8") ~ "CD8+T",
-                                  # str_detect(predicted.id, "CD4") ~ "CD4+T",
-                                  TRUE ~ predicted.id
-                                  )
-         ) %>%
-  mutate(predicted.id=factor(predicted.id, levels = ordered_cell_types)) %>%
-  group_by(method, predicted.id, gene) %>%
-  dplyr::mutate(frac.cells=sum(log.counts > 0)/n()) %>%
-  # filter(method=="CCA") %>%
-  ungroup() %>%
-  ggplot( aes( gene, predicted.id)) +
-  geom_point(aes(size=frac.cells, color=frac.cells)) +
-  facet_grid(method~., space="free", scales="free_x") +
-  scale_color_gradient(high="darkblue", low="white") +
-  # scale_color_viridis_c() +
-  theme_bw(base_size = 16) +
-  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
-        strip.text.x = element_text(angle=45)) 
+<!-- markers_pl <-  -->
+<!--   marker.access.df %>% -->
+<!--   mutate(predicted.id = case_when(str_detect(predicted.id, "CD8") ~ "CD8+T", -->
+<!--                                   # str_detect(predicted.id, "CD4") ~ "CD4+T", -->
+<!--                                   TRUE ~ predicted.id -->
+<!--                                   ) -->
+<!--          ) %>% -->
+<!--   mutate(predicted.id=factor(predicted.id, levels = ordered_cell_types)) %>% -->
+<!--   group_by(method, predicted.id, gene) %>% -->
+<!--   dplyr::mutate(frac.cells=sum(log.counts > 0)/n()) %>% -->
+<!--   # filter(method=="CCA") %>% -->
+<!--   ungroup() %>% -->
+<!--   ggplot( aes( gene, predicted.id)) + -->
+<!--   geom_point(aes(size=frac.cells, color=frac.cells)) + -->
+<!--   facet_grid(method~., space="free", scales="free_x") + -->
+<!--   scale_color_gradient(high="darkblue", low="white") + -->
+<!--   # scale_color_viridis_c() + -->
+<!--   theme_bw(base_size = 16) + -->
+<!--   theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5), -->
+<!--         strip.text.x = element_text(angle=45))  -->
 
-markers_pl 
-  
-ggsave(paste0(outdir, "Thymus_markers_accessibility.png"), height = 16, width = 12)
-```
+<!-- markers_pl  -->
 
-Reproducing Fig.2H on T-cell development
-```{r, fig.width=10, fig.height=12}
-t.cell.markers <- list(known.markers = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "TRAC", "CD4", "CD8A", "CD8B"),
-                       chemokine.receptors = c("CCR9", "CCR7"),
-                       tcr.activation = c("CD5", "CD27"),
-                       proliferation=c("PCNA", "CDK1", "MKI67"),
-                       cyclin.D = c("CCND2", "CCND3"),
-                       recombination=c("RAG1", "RAG2"),
-                       apoptosis=c("HRK","BMF", "TP53INP1"),
-                       stage.markers = c("ST18", "HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "SATB1", "TOX2")
-                       ) 
-t.cell.markers.df <- imap(t.cell.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>%
-  purrr::reduce(bind_rows)
+<!-- ggsave(paste0(outdir, "Thymus_markers_accessibility.png"), height = 16, width = 12) -->
+<!-- ``` -->
 
-ordered.tcells <- c("DN", "DP (P)", "DP (Q)","SP (1)")
+<!-- Reproducing Fig.2H on T-cell development -->
+<!-- ```{r, fig.width=10, fig.height=12} -->
+<!-- t.cell.markers <- list(known.markers = c("CD34", "IGLL1", "TRGC2", "TRDC", "PTCRA", "TRBC2", "TRAC", "CD4", "CD8A", "CD8B"), -->
+<!--                        chemokine.receptors = c("CCR9", "CCR7"), -->
+<!--                        tcr.activation = c("CD5", "CD27"), -->
+<!--                        proliferation=c("PCNA", "CDK1", "MKI67"), -->
+<!--                        cyclin.D = c("CCND2", "CCND3"), -->
+<!--                        recombination=c("RAG1", "RAG2"), -->
+<!--                        apoptosis=c("HRK","BMF", "TP53INP1"), -->
+<!--                        stage.markers = c("ST18", "HIVEP3", "RGPD3", "SMPD3", "AQP3", "RORC", "SATB1", "TOX2") -->
+<!--                        )  -->
+<!-- t.cell.markers.df <- imap(t.cell.markers, ~ data.frame(gene=.x, cell.type.class=.y)) %>% -->
+<!--   purrr::reduce(bind_rows) -->
 
-tcells.markers.df <- 
-  atac.seu@assays$RNA@data[intersect(thymus.markers, rownames(atac.seu@assays$RNA)),] %>%
-  as.matrix() %>%
-  reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>%
-  full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>%
-  pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>%
-  dplyr::mutate(method=str_remove(method,".+_")) %>%
-  filter(method %in% c("CCA", "Liger", "Conos")) %>%
-  mutate(predicted.id=ifelse(str_detect(predicted.id, "CD8+"), "CD8+T", predicted.id)) %>%
-  mutate(predicted.id=ifelse(str_detect(predicted.id, "CD4+"), "CD4+T", predicted.id)) %>%
-  filter(predicted.id %in% ordered.tcells) %>%
-  group_by(method, predicted.id, gene) %>%
-  dplyr::mutate(frac.cells=sum(log.counts > 0)/n(), mean.acc=mean(log.counts)) %>%
-  ungroup() 
+<!-- ordered.tcells <- c("DN", "DP (P)", "DP (Q)","SP (1)") -->
 
-tcells.markers.df %>%
-  full_join(t.cell.markers.df) %>%
-  # filter(method=="CCA") %>%
-  mutate(predicted.id=factor(predicted.id, levels=ordered.tcells)) %>%
-  ggplot(aes( predicted.id, gene)) +
-  facet_grid(cell.type.class~method, scales = "free_y", space="free") +
-  geom_point(aes(size=frac.cells, color=frac.cells)) +
-  # scale_color_gradient(high="darkblue", low="white") +
-  scale_color_viridis_c() +
-  # scale_color_gradient2(midpoint = 0.5) +
-  theme_bw(base_size = 16) +
-  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
-        strip.text.y = element_text(angle=0)) 
+<!-- tcells.markers.df <-  -->
+<!--   atac.seu@assays$RNA@data[intersect(thymus.markers, rownames(atac.seu@assays$RNA)),] %>% -->
+<!--   as.matrix() %>% -->
+<!--   reshape2::melt(varnames=c("gene", "cell"), value.name="log.counts") %>% -->
+<!--   full_join(rownames_to_column(atac.seu@meta.data[, label_cols], "cell")) %>% -->
+<!--   pivot_longer(cols=label_cols, names_to = "method", values_to = "predicted.id") %>% -->
+<!--   dplyr::mutate(method=str_remove(method,".+_")) %>% -->
+<!--   filter(method %in% c("CCA", "Liger", "Conos")) %>% -->
+<!--   mutate(predicted.id=ifelse(str_detect(predicted.id, "CD8+"), "CD8+T", predicted.id)) %>% -->
+<!--   mutate(predicted.id=ifelse(str_detect(predicted.id, "CD4+"), "CD4+T", predicted.id)) %>% -->
+<!--   filter(predicted.id %in% ordered.tcells) %>% -->
+<!--   group_by(method, predicted.id, gene) %>% -->
+<!--   dplyr::mutate(frac.cells=sum(log.counts > 0)/n(), mean.acc=mean(log.counts)) %>% -->
+<!--   ungroup()  -->
 
-ggsave(paste0(outdir, "tcell_markers.png"), height = 14, width = 14)
+<!-- tcells.markers.df %>% -->
+<!--   full_join(t.cell.markers.df) %>% -->
+<!--   # filter(method=="CCA") %>% -->
+<!--   mutate(predicted.id=factor(predicted.id, levels=ordered.tcells)) %>% -->
+<!--   ggplot(aes( predicted.id, gene)) + -->
+<!--   facet_grid(cell.type.class~method, scales = "free_y", space="free") + -->
+<!--   geom_point(aes(size=frac.cells, color=frac.cells)) + -->
+<!--   # scale_color_gradient(high="darkblue", low="white") + -->
+<!--   scale_color_viridis_c() + -->
+<!--   # scale_color_gradient2(midpoint = 0.5) + -->
+<!--   theme_bw(base_size = 16) + -->
+<!--   theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5), -->
+<!--         strip.text.y = element_text(angle=0))  -->
 
-```
+<!-- ggsave(paste0(outdir, "tcell_markers.png"), height = 14, width = 14) -->
+
+<!-- ``` -->
 
 <!-- ### Compare feature selection strategy (reference based) -->
 <!-- ```{r} -->

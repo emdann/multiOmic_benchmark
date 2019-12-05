@@ -360,18 +360,23 @@ knn_score_pl +
   ggsave(paste(outdir,"KNN_score_ecdf_unionHVG.png"), height = 4, width=9)
 ```
 ```{r}
-KNN_purity_pl <- bind_rows(knn_score_df, knn_score_null_df) %>%
+KNN_purity_pl <-
+  bind_rows(knn_score_df, knn_score_null_df) %>%
   group_by(method) %>%
   summarise(D=max(D)) %>%
   mutate(method=c(CCA='CCA', conos="Conos", liger="Liger")[method]) %>%
-  ggplot(aes(method, D, fill=method)) +
-  geom_col() +
+  ggplot(aes(method, D, fill=method, color=method)) +
+  geom_col(width=0.5) +
+  coord_flip() +
+  scale_color_brewer(palette = "Set1") +
   scale_fill_brewer(palette = "Set1") +
   theme_bw(base_size = 16) +
   ylim(0,1) +
-  ylab("KNN purity") + xlab("") 
-
-KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 5, width=5)
+  ylab("KNN purity") + xlab("") +
+  theme(legend.position = "top")
+KNN_purity_pl
+KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 3, width=6) +
+  ggtitle("Binary GMAT - HVG union")
 ```
 
 
