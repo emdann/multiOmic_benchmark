@@ -47,7 +47,7 @@ pred.labels %>%
   theme_bw(base_size = 16) +
   geom_vline(xintercept = 0.5, linetype=2) +
   ylab("ECDF") + xlab("Label prediction score") +
-  ggsave(paste0(outdir, "prediction_score.png"), width=12, height = 4)
+  ggsave(paste0(outdir, "prediction_score.png"), width=10, height = 3)
 ```
 
 ### Cell type composition

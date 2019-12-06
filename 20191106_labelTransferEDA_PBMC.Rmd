@@ -374,8 +374,7 @@ KNN_purity_pl <-
   ylim(0,1) +
   ylab("KNN purity") + xlab("") +
   theme(legend.position = "top")
-KNN_purity_pl
-KNN_purity_pl + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 3, width=6) 
+KNN_purity_pl + theme(legend.position="right") + ggsave(paste0(outdir, "KNN_purity_bars.png"), height = 3, width=7) 
 ```
 
 
