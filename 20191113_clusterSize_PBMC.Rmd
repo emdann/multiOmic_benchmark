@@ -39,14 +39,15 @@ atac.seu <- RunUMAP(atac.seu, reduction = "SnapATAC", reduction.name = "umap.sna
 ### Prediction score
 ```{r, fig.width=15, fig.height=7}
 pred.labels %>%
+  mutate(method=c(liger="Liger", conos="Conos", CCA='CCA')[method]) %>%
   ggplot(aes(color=res, group=as.factor(res), score)) +
   stat_ecdf() +
   facet_wrap(method~.) +
-  scale_color_viridis_c(name="Clustering resolution") +
+  scale_color_viridis_c(option="inferno", name="Clustering\nresolution") +
   theme_bw(base_size = 16) +
   geom_vline(xintercept = 0.5, linetype=2) +
   ylab("ECDF") + xlab("Label prediction score") +
-  ggsave(paste0(outdir, "prediction_score.png"), width=10, height = 4)
+  ggsave(paste0(outdir, "prediction_score.png"), width=12, height = 4)
 ```
 
 ### Cell type composition
