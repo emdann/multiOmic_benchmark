@@ -21,28 +21,26 @@ Here we implemented an analysis workflow to optimize the performance of methods 
 
 # Results
 
-## Designing a bechmark for label transfer methods: PBMC dataset
+## Designing a benchmark for label transfer methods: PBMC dataset
 
-We started by comapring the performance of three publicly available methods for label transfer: CCA [@stuartComprehensiveIntegrationSingleCell2019], Conos [@barkasJointAnalysisHeterogeneous2019] and Liger [@welchSingleCellMultiomicIntegration2019]. 
+We started by comparing the performance of three publicly available methods for label transfer: CCA [@stuartComprehensiveIntegrationSingleCell2019], Conos [@barkasJointAnalysisHeterogeneous2019] and Liger [@welchSingleCellMultiomicIntegration2019]. 
 We used a publicly available dataset of Peripheral Blood Mononuclear Cells (PBMC) from 10XGenomics. After filtering, this comprises of transcriptomic profiles for 5607 cells and accessibility profiles for 8960 cells. 
 
 <!-- We first evaluate the ability of different methods to transfer cell type annotations derived from scRNA-seq data to scATAC-seq data of the same tissue (See Methods \@ref(transfer-label) for details about label transfer procedure for each method).  -->
 
 Visualizing the predicted labels on the embedding of genome-wide scATAC-seq profiles, we find that for all the methods reconstruct similar clusters, which agree with the global structure of the accessibility data (Fig.\@ref(fig:label-comp)A).
 Cell type proportions are in line with those found in the cell population measured with scRNA-seq (Fig.\@ref(fig:label-comp)B).
-We next evaluated run time and robustess of methods running label prediction including a growing fraction of scATAC-seq cells. Conos is the fastest method, with speed minimally affected by the number of query cells (Fig.\@ref(fig:label-comp)). Both Conos and CCA were equally robust in their label predictions for subsets of cells, with Adjusted Rand Index compared to labels inferred from the full dataset between 0.6 and 0.8 (Fig.\@ref(fig:label-comp)C). Conversely 
+We next evaluated run time and robustess of methods running label prediction including a growing fraction of scATAC-seq cells. Conos is the fastest method, with speed minimally affected by the number of query cells (Fig.\@ref(fig:label-comp)). Both Conos and CCA were equally robust in their label predictions for subsets of cells, with Adjusted Rand Index compared to labels inferred from the full dataset between 0.6 and 0.8 (Fig.\@ref(fig:label-comp)C). Conversely, Liger showed much higher variability in label prediction.
 
-All integration methods measure the uncertainty of their assignment (Fig.\@ref(fig:predict-score)A). Setting a threshold on the label prediction score allows to remove from downstream analysis cells with a low confidence prediction label, and mark them as unasssigned. We found that at the cutoff of 0.5, suggested by @stuartComprehensiveIntegrationSingleCell2019a, Liger excludes the least amount of cells, while Conos scores the most cells with higher confidence (Fig.\@ref(fig:predict-score)B). 
+All methods associate labels with a prediction score, that allows to remove labels with high uncertainty (Fig.\@ref(fig:label-comp)D). We found that different methods score with high confidence similar clusters (Fig.\@ref(fig:label-comp)E). We clustered scRNA-seq cells with increasing resolution (i.e. from bigger few clusters to many smaller clusters) and compared the distribution of prediction scores. We found that Conos predicts labels with higher confidence with larger (low-resolution) clusters (Fig.\@ref(fig:label-comp)F)
+<!-- Setting a threshold on the label prediction score allows to remove from downstream analysis cells with a low confidence prediction label, and mark them as unasssigned. We found that at the cutoff of 0.5, suggested by @stuartComprehensiveIntegrationSingleCell2019a, Liger excludes the least amount of cells, while Conos scores the most cells with higher confidence (Fig.\@ref(fig:predict-score)B).  -->
 
-Taking a closer look at predicted label composition and confidence score for each cell type, we found that the different methods called similar fractions of cells for the same labels. On average Liger score with lower confidence smaller cell populations, such as pDCs, platelets, CD8+ naive cells. 
-```{r label-comp, fig.show='hold', fig.cap="Comparison of label transfer methods on PBMC dataset.", echo=FALSE}
-knitr::include_graphics("output/Fig1.pdf", auto_pdf = TRUE)
-```
-
-We wanted to evaluate if the predicted annotations maintain the structure found when clustering cells based on bin accessibility alone, i.e. if cells that have a similar bin accessibility profile also get annotated with the same cell type. For each cell we measure the fraction of the K nearest neighbors that share the same predicted label (KNN score). Looking at the distributions of KNN scores, we find that Liger maintains the original connectivity structure better, followed by Conos and finally CCA, even if the differences are not that substantial. Also the KNN score is dependent on the assigned cell type.
+We wanted to quantify if cells that get annotated with the same label also have a similar genome-wide bin accessibility profile. This is crucial to allow reconstruction of consensus chromatin accessibility profiles of clusters/cell types. 
+We calculate the fraction of nearest neighbors per cell that share the predicted label. For each prediction, we calculate a null distribution of this fraction by randomly shuffling the assigned labels. We define a KNN purity statistic as the deviation between the null and the true distribution (KS test, see Methods \@ref(knn-purity)). We found that Conos and Liger performed slightly better on this dataset than CCA (Fig.\@ref(fig:label-comp)G).
+<!-- Looking at the distributions of KNN scores, we find that Liger maintains the original connectivity structure better, followed by Conos and finally CCA, even if the differences are not that substantial. Also the KNN score is dependent on the assigned cell type. -->
 
 
-We checked accessibility of PBMC marker genes in the called cell types. We found that cell populations called with CCA show accessibility of expected marker genes from transcriptomics, for NK cells, monocytes, CD8+ cells, and the platelets even.
+<!-- We checked accessibility of PBMC marker genes in the called cell types. We found that cell populations called with CCA show accessibility of expected marker genes from transcriptomics, for NK cells, monocytes, CD8+ cells, and the platelets even. -->
 
 ```{r markers, fig.show='hold', fig.cap="Accessibility of markers in predicted cell clusters", echo=FALSE}
 knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/PBMC_markers_accessibility.png", auto_pdf = TRUE)
@@ -51,20 +49,16 @@ knitr::include_graphics("output/20191106_labelTransferEDA_PBMC/PBMC_markers_acce
 
 ## Optimizing label transfer on Thymus dataset
 
-### Label transfer on count gmat 
-
-
-
-```{r label-transfer-thymus, fig.show='hold', fig.cap="UMAP of predicted labels for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/umap_labels_filtered.png", auto_pdf = TRUE)
-```
+We moved on to optimizing label transfer and integration on a dataset capturing cell populations with less distinct molecular signatures. We analyzed a dataset generated from developing thymus at 10 post-conceptional weeks. Libraries for scRNA-seq and scATAC-seq were generated on different samples from the same donor. 
+Clustering and annotation of the transcriptomes identified 15 distinct cell populations (Fig|\@ref(fig:opt-thymus)). The main cluster represents T cells undergoing maturation, from the Double Negative (DN) state, to Double Positive (DP) to CD4+ or CD8+ Single Positive (SP) T cells. Other smaller clusters were identified as other components of the thymic microenvironment, such as thymic epithelial cells (TEC) or other immune cell populations (e.g. Dendritic Cells, Macrophages, Innate like cells). Clustering of genome-wide scATAC-seq profiles also partitioned the data with a similar structure, with smaller clusters and a main population divided into subclusters (Fig. ?). 
+Repeating the label transfer workflow as for the PBMC dataset we noticed that while all methods consistently assigned the smaller clusters, only with CCA transfered annotations resemble chromatin accessibility clusters, and this is reflected in the KNN purity score (Fig.\@ref(fig:opt-thymus)B). 
 
 
 
 
-```{r pred-score-thymus, fig.show='hold', fig.cap="Prediction scores for thymus dataset", echo=FALSE}
-knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/prediction_score_distribution.png", auto_pdf = TRUE)
-knitr::include_graphics("output/20191113_labelTransferEDA_F74_v2/prediction_score_umaps.png", auto_pdf = TRUE)
+
+```{r opt-thymus, fig.show='hold', fig.cap="Thymus dataset", echo=FALSE}
+knitr::include_graphics("output/Fig2.pdf", auto_pdf = TRUE)
 ```
 
 
@@ -92,15 +86,16 @@ Trying to reproduce accessibility profiles of ordered T-cell populations (see Fi
 knitr::include_graphics("output/20191106_labelTransferEDA_F74/tcell_markers.png", auto_pdf = TRUE)
 ```
 
-## What next?
+<!-- ## What next? -->
 
-- Evaluate label transfer for different cluster sizes
-- Label transfer w bigger clusters provided by Cecilia
-- MATCHER comparison: CCA seems able to reconstruct the main differences between differentiating T-cells. Will MATCHER find the same relationships between cells? 
-- Integration w imputation instead of label transfer
-- Performance comparison on matched joint profilinf of ATAC - RNA on the same cells
+<!-- - Evaluate label transfer for different cluster sizes -->
+<!-- - Label transfer w bigger clusters provided by Cecilia -->
+<!-- - MATCHER comparison: CCA seems able to reconstruct the main differences between differentiating T-cells. Will MATCHER find the same relationships between cells?  -->
+<!-- - Integration w imputation instead of label transfer -->
+<!-- - Performance comparison on matched joint profilinf of ATAC - RNA on the same cells -->
 
 # Discussion
+- Methods perform similarly on a dataset with defined clusters
 - Does it make a difference how do you reduce ATAC to gene - features? Scoring that takes into account enhancer activity (e.g. Cicero) might be more informative to align differentiating cells.  
 - Testing performance on datasets from joint profiling protocols
 
@@ -142,7 +137,7 @@ We generated cell-by-gene count matrices by aggregating bin coverage over the ge
 **Feature selection** For label transfer, we select informative genes by taking the union of the 2000 most highly variable genes (HVGs) in scRNA-seq and scATAC-seq datasets (using the Seurat function `FindVariableGenes`). Other studies have used only the HVGs from the reference dataset (in most cases the scRNA-seq). We found that these two feature selection strategies gave similar label transfer results and we opted for the union to avoid selecting only genes that have very low coverage in the ATAC-seq data. 
 
 ## Dimensionality reduction and clustering 
-We used principal component analysis as a low dimensional representation of scRNA-seq datasets. Unless otherwise stated, we used Latent Semantic Indexing for dimensionality reduction of accessibility matrices, as proposed by @cusanovichMultiplexSinglecellProfiling2015. For data visualization, we used the Uniform Manifold Approximation and Projection (UMAP) algorithm [@mcinnesUMAPUniformManifold2018] on low-dimensional data representation.
+We used principal component analysis as a low dimensional representation of scRNA-seq datasets. Unless otherwise stated, we used Latent Semantic Indexing (LSI) for dimensionality reduction of accessibility matrices, as proposed by @cusanovichMultiplexSinglecellProfiling2015. For data visualization, we used the Uniform Manifold Approximation and Projection (UMAP) algorithm [@mcinnesUMAPUniformManifold2018] on low-dimensional data representation.
 
 ## scATAC-seq data embedding
 
@@ -179,8 +174,9 @@ $$
 ##### Conos
 Label transfer is treated as a general problem of information propagation between vertices of the common graph (detailed in @barkasJointAnalysisHeterogeneous2019). The label score is the label probability updating during the diffusion process.
 
-### KNN purity score
-Knn purity score is calculated retaining over labels with prediction score > 0.5 
+### KNN purity score {#knn-purity}
+We construct the k nearest neighbor (KNN) graph of scATAC-seq cells on the LSI reduction matrix (k = 30). For each prediction, we measure the fraction of NNs per cell that have the same predicted label. We do the same after randomly permuting the predicted labels, to estimate a null distribution. The purpose of this step is to avoid giving a high score to a prediction that assigns many cells to just a few clusters. We then compute the K-S deviation statistic between true and null distribution and define this as KNN purity.
+KNN purity score is calculated retaining only labels with prediction score > 0.5. 
 
 
 # Bibliography
