@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.11.2)  6 DEC 2019 08:05
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.11.2)  9 DEC 2019 12:55
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -623,231 +623,74 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 \tf@toc=\write4
 \openout4 = `progress_log.toc'.
 
-[1
-
-{/Users/ed6/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-06.
+05.
 (/Users/ed6/Library/TinyTeX/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
-)
+) [1
 
-LaTeX Warning: Reference `fig:predict-score' on page 2 undefined on input line 
-125.
-
-
-LaTeX Warning: Reference `fig:predict-score' on page 2 undefined on input line 
-125.
-
-<"output/""Fig1".pdf, id=88, 1927.2pt x 883.3pt>
+{/Users/ed6/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+<"output/""Fig1".pdf, id=92, 1726.45pt x 1104.125pt>
 File: "output/""Fig1".pdf Graphic file (type pdf)
 <use "output/""Fig1".pdf>
-Package pdftex.def Info: "output/""Fig1".pdf  used on input line 128.
-(pdftex.def)             Requested size: 469.7421pt x 215.29845pt.
+Package pdftex.def Info: "output/""Fig1".pdf  used on input line 132.
+(pdftex.def)             Requested size: 469.75679pt x 300.42586pt.
+[2]
+<"output/""Fig2".pdf, id=111, 1084.05pt x 983.675pt>
+File: "output/""Fig2".pdf Graphic file (type pdf)
+<use "output/""Fig2".pdf>
+Package pdftex.def Info: "output/""Fig2".pdf  used on input line 146.
+(pdftex.def)             Requested size: 469.75496pt x 426.25912pt.
+[3 <./output/Fig1.pdf>] [4 <./output/Fig2.pdf>]
+<"output/""Fig3".pdf, id=187, 786.94pt x 1027.84pt>
+File: "output/""Fig3".pdf Graphic file (type pdf)
+<use "output/""Fig3".pdf>
+Package pdftex.def Info: "output/""Fig3".pdf  used on input line 158.
+(pdftex.def)             Requested size: 469.75409pt x 613.55637pt.
 
-Underfull \hbox (badness 1147) in paragraph at lines 127--129
-\T1/lmr/m/n/10 score with lower con-fi-dence smaller cell pop-u-la-tions, such 
-as pDCs, platelets, CD8+ naive cells.
- []
-
-[2 <./output/Fig1.pdf>]
-<"output/20191106_labelTransferEDA_PBMC/"" KNN_score_ecdf_unionHVG".png, id=113
-, 650.43pt x 289.08pt>
-File: "output/20191106_labelTransferEDA_PBMC/"" KNN_score_ecdf_unionHVG".png Gr
-aphic file (type png)
-<use "output/20191106_labelTransferEDA_PBMC/"" KNN_score_ecdf_unionHVG".png>
-Package pdftex.def Info: "output/20191106_labelTransferEDA_PBMC/"" KNN_score_ec
-df_unionHVG".png  used on input line 133.
-(pdftex.def)             Requested size: 650.45818pt x 289.09251pt.
-
-Overfull \hbox (180.70316pt too wide) in paragraph at lines 133--133
-[][] 
- []
-
-<"output/20191106_labelTransferEDA_PBMC/""PBMC_markers_accessibility".pdf, id=1
-14, 867.24pt x 722.7pt>
-File: "output/20191106_labelTransferEDA_PBMC/""PBMC_markers_accessibility".pdf 
-Graphic file (type pdf)
-<use "output/20191106_labelTransferEDA_PBMC/""PBMC_markers_accessibility".pdf>
-Package pdftex.def Info: "output/20191106_labelTransferEDA_PBMC/""PBMC_markers_
-accessibility".pdf  used on input line 140.
-(pdftex.def)             Requested size: 469.75827pt x 391.46521pt.
-<"output/20191113_labelTransferEDA_F74_v2/""umap_labels_filtered".png, id=115, 
-1156.32pt x 433.62pt>
-File: "output/20191113_labelTransferEDA_F74_v2/""umap_labels_filtered".png Grap
-hic file (type png)
-<use "output/20191113_labelTransferEDA_F74_v2/""umap_labels_filtered".png>
-Package pdftex.def Info: "output/20191113_labelTransferEDA_F74_v2/""umap_labels
-_filtered".png  used on input line 151.
-(pdftex.def)             Requested size: 1156.3701pt x 433.63878pt.
-
-Overfull \hbox (686.61508pt too wide) in paragraph at lines 151--151
-[][] 
- []
-
-<"output/20191113_labelTransferEDA_F74_v2/""prediction_score_distribution".png,
- id=116, 722.7pt x 433.62pt>
-File: "output/20191113_labelTransferEDA_F74_v2/""prediction_score_distribution"
-.png Graphic file (type png)
-<use "output/20191113_labelTransferEDA_F74_v2/""prediction_score_distribution".
-png>
-Package pdftex.def Info: "output/20191113_labelTransferEDA_F74_v2/""prediction_
-score_distribution".png  used on input line 155.
-(pdftex.def)             Requested size: 722.73131pt x 433.63878pt.
-
-Overfull \hbox (252.97629pt too wide) in paragraph at lines 155--155
-[][] 
- []
-
-<"output/20191113_labelTransferEDA_F74_v2/""prediction_score_umaps".png, id=117
-, 1011.78pt x 505.89pt>
-File: "output/20191113_labelTransferEDA_F74_v2/""prediction_score_umaps".png Gr
-aphic file (type png)
-<use "output/20191113_labelTransferEDA_F74_v2/""prediction_score_umaps".png>
-Package pdftex.def Info: "output/20191113_labelTransferEDA_F74_v2/""prediction_
-score_umaps".png  used on input line 158.
-(pdftex.def)             Requested size: 1011.79295pt x 505.89645pt.
-
-Overfull \hbox (542.03793pt too wide) in paragraph at lines 158--159
-[] 
- []
-
-[3 <./output/20191106_labelTransferEDA_PBMC/ KNN_score_ecdf_unionHVG.png (PNG c
-opy)>] [4 <./output/20191106_labelTransferEDA_PBMC/PBMC_markers_accessibility.p
-df>] [5 <./output/20191113_labelTransferEDA_F74_v2/umap_labels_filtered.png (PN
-G copy)>] [6 <./output/20191113_labelTransferEDA_F74_v2/prediction_score_distri
-bution.png (PNG copy)>]
-<"output/20191113_labelTransferEDA_F74_v2/""cell_type_composition_bars".png, id
-=146, 1084.05pt x 361.35pt>
-File: "output/20191113_labelTransferEDA_F74_v2/""cell_type_composition_bars".pn
-g Graphic file (type png)
-<use "output/20191113_labelTransferEDA_F74_v2/""cell_type_composition_bars".png
->
-Package pdftex.def Info: "output/20191113_labelTransferEDA_F74_v2/""cell_type_c
-omposition_bars".png  used on input line 163.
-(pdftex.def)             Requested size: 1084.04736pt x 361.34912pt.
-
-Overfull \hbox (614.29234pt too wide) in paragraph at lines 163--163
-[][] 
- []
-
-<"output/20191113_labelTransferEDA_F74_v2/"" KNN_score_ecdf_unionHVG".png, id=1
-47, 505.89pt x 433.62pt>
-File: "output/20191113_labelTransferEDA_F74_v2/"" KNN_score_ecdf_unionHVG".png 
-Graphic file (type png)
-<use "output/20191113_labelTransferEDA_F74_v2/"" KNN_score_ecdf_unionHVG".png>
-Package pdftex.def Info: "output/20191113_labelTransferEDA_F74_v2/"" KNN_score_
-ecdf_unionHVG".png  used on input line 169.
-(pdftex.def)             Requested size: 505.9119pt x 433.63878pt.
-
-Overfull \hbox (36.15688pt too wide) in paragraph at lines 169--169
-[][] 
- []
-
-<"output/20191106_labelTransferEDA_F74/""Thymus_markers_accessibility".png, id=
-148, 867.24pt x 1156.32pt>
-File: "output/20191106_labelTransferEDA_F74/""Thymus_markers_accessibility".png
- Graphic file (type png)
-<use "output/20191106_labelTransferEDA_F74/""Thymus_markers_accessibility".png>
-
-Package pdftex.def Info: "output/20191106_labelTransferEDA_F74/""Thymus_markers
-_accessibility".png  used on input line 173.
-(pdftex.def)             Requested size: 487.8213pt x 650.4284pt.
-
-Overfull \hbox (18.06628pt too wide) in paragraph at lines 173--173
-[][] 
- []
+LaTeX Warning: Float too large for page by 71.62636pt on input line 160.
 
 
-LaTeX Warning: Float too large for page by 23.94283pt on input line 174.
-
-[7 <./output/20191113_labelTransferEDA_F74_v2/prediction_score_umaps.png (PNG c
-opy)>] [8 <./output/20191113_labelTransferEDA_F74_v2/cell_type_composition_bars
-.png (PNG copy)>] [9 <./output/20191113_labelTransferEDA_F74_v2/ KNN_score_ecdf
-_unionHVG.png (PNG copy)>] [10 <./output/20191106_labelTransferEDA_F74/Thymus_m
-arkers_accessibility.png (PNG copy)>]
-<"output/20191106_labelTransferEDA_F74/""tcell_markers".png, id=172, 1011.78pt 
-x 1011.78pt>
-File: "output/20191106_labelTransferEDA_F74/""tcell_markers".png Graphic file (
-type png)
-<use "output/20191106_labelTransferEDA_F74/""tcell_markers".png>
-Package pdftex.def Info: "output/20191106_labelTransferEDA_F74/""tcell_markers"
-.png  used on input line 187.
-(pdftex.def)             Requested size: 650.43942pt x 650.43942pt.
-
-Overfull \hbox (180.6844pt too wide) in paragraph at lines 187--187
-[][] 
- []
-
-
-LaTeX Warning: Float too large for page by 23.95384pt on input line 188.
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 213--215
+Underfull \hbox (badness 10000) in paragraph at lines 170--172
 
  []
 
+[5] [6 <./output/Fig3.pdf>]
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 2
-42.
+11.
 (/Users/ed6/Library/TinyTeX/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2009/10/30 v1.6 Font defs for Latin Modern
-) [11] [12 <./output/20191106_labelTransferEDA_F74/tcell_markers.png (PNG copy)
->]
-Overfull \hbox (14.01056pt too wide) in paragraph at lines 286--287
- []\T1/lmr/m/n/10 Included 
- []
-
-
-Overfull \hbox (24.59396pt too wide) in paragraph at lines 286--287
- \T1/lmr/m/n/10 benchmark| 
- []
-
-
-Overfull \hbox (27.50142pt too wide) in paragraph at lines 371--372
-[]\T1/lmr/m/n/10 Cusanovich2018|  
- []
-
-
-Overfull \hbox (2.79929pt too wide) in paragraph at lines 373--374
-[]\T1/lmr/m/n/10 Cusanovich 
- []
-
-[13] [14]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 462.
-[15]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 462.
+) [7] [8]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 400.
+[9]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 400.
 (./progress_log.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 462.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 462.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 400.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 400.
 Package rerunfilecheck Info: File `progress_log.out' has not changed.
-(rerunfilecheck)             Checksum: 07F5A6B182BBBFD6C9402C4A094C57CD;2263.
-
-LaTeX Warning: There were undefined references.
-
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 462.
+(rerunfilecheck)             Checksum: FEC492BFEF223344755D8105679EA263;2086.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 400.
  ) 
 Here is how much of TeX's memory you used:
- 10789 strings out of 494111
- 154612 string characters out of 6170577
- 228247 words of memory out of 5000000
- 14684 multiletter control sequences out of 15000+600000
+ 10721 strings out of 494111
+ 151412 string characters out of 6170577
+ 223275 words of memory out of 5000000
+ 14633 multiletter control sequences out of 15000+600000
  42599 words of font info for 41 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 31i,5n,34p,1061b,421s stack positions out of 5000i,500n,10000p,200000b,80000s
-{/Users/ed6/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/Users/e
-d6/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/Users/ed6/Libr
-ary/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/Users/ed6/Library/TinyTeX
-/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}</Users/ed6/Library/TinyTeX/texmf-dis
-t/fonts/type1/public/lm/lmbx10.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts
-/type1/public/lm/lmbx12.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts/type1/
-public/lm/lmmi10.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts/type1/public/
-lm/lmr10.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr17
-.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmri10.pfb></
-Users/ed6/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmtt10.pfb>
-Output written on progress_log.pdf (15 pages, 6339459 bytes).
+ 31i,6n,34p,1910b,373s stack positions out of 5000i,500n,10000p,200000b,80000s
+{/Users/ed6/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/Users/e
+d6/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}</Users/ed6/Library
+/TinyTeX/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></Users/ed6/Library/TinyTe
+X/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></Users/ed6/Library/TinyTeX/texmf
+-dist/fonts/type1/public/lm/lmr10.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fo
+nts/type1/public/lm/lmr17.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts/type
+1/public/lm/lmri10.pfb></Users/ed6/Library/TinyTeX/texmf-dist/fonts/type1/publi
+c/lm/lmtt10.pfb>
+Output written on progress_log.pdf (9 pages, 8709078 bytes).
 PDF statistics:
- 311 PDF objects out of 1000 (max. 8388607)
- 268 compressed objects within 3 object streams
- 81 named destinations out of 1000 (max. 500000)
- 163 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 351 PDF objects out of 1000 (max. 8388607)
+ 298 compressed objects within 3 object streams
+ 64 named destinations out of 1000 (max. 500000)
+ 104 words of extra memory for PDF output out of 10000 (max. 10000000)
 
