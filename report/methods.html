@@ -4,11 +4,11 @@
 
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>3 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</title>
-  <meta name="description" content="3 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <title>4 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data</title>
+  <meta name="description" content="4 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
   <meta name="generator" content="bookdown 0.14 and GitBook 2.6.7" />
 
-  <meta property="og:title" content="3 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <meta property="og:title" content="4 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
   <meta property="og:type" content="book" />
   
   
@@ -16,7 +16,7 @@
   
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="3 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
+  <meta name="twitter:title" content="4 Methods | Benchmarking methods for alignment of scRNA-sea and scATAC-seq data" />
   
   
   
@@ -29,7 +29,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   
   
-<link rel="prev" href="results.html"/>
+<link rel="prev" href="discussion.html"/>
 
 <script src="libs/jquery-2.2.3/jquery.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
@@ -65,28 +65,24 @@
 <ul class="summary">
 <li class="chapter" data-level="1" data-path="introduction.html"><a href="introduction.html"><i class="fa fa-check"></i><b>1</b> Introduction</a></li>
 <li class="chapter" data-level="2" data-path="results.html"><a href="results.html"><i class="fa fa-check"></i><b>2</b> Results</a><ul>
-<li class="chapter" data-level="2.1" data-path="results.html"><a href="results.html#label-transfer-comparison-on-pbmc-dataset"><i class="fa fa-check"></i><b>2.1</b> Label transfer comparison on PBMC dataset</a></li>
-<li class="chapter" data-level="2.2" data-path="results.html"><a href="results.html#label-transfer-comparison-on-thymus-dataset"><i class="fa fa-check"></i><b>2.2</b> Label transfer comparison on Thymus dataset</a><ul>
-<li class="chapter" data-level="2.2.1" data-path="results.html"><a href="results.html#exploratory-data-analysis-on-scatac-seq"><i class="fa fa-check"></i><b>2.2.1</b> Exploratory data analysis on scATAC-seq</a></li>
-<li class="chapter" data-level="2.2.2" data-path="results.html"><a href="results.html#label-transfer"><i class="fa fa-check"></i><b>2.2.2</b> Label transfer</a></li>
+<li class="chapter" data-level="2.1" data-path="results.html"><a href="results.html#designing-a-bechmark-for-label-transfer-methods-pbmc-dataset"><i class="fa fa-check"></i><b>2.1</b> Designing a bechmark for label transfer methods: PBMC dataset</a></li>
+<li class="chapter" data-level="2.2" data-path="results.html"><a href="results.html#optimizing-label-transfer-on-thymus-dataset"><i class="fa fa-check"></i><b>2.2</b> Optimizing label transfer on Thymus dataset</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="results.html"><a href="results.html#label-transfer-on-count-gmat"><i class="fa fa-check"></i><b>2.2.1</b> Label transfer on count gmat</a></li>
 </ul></li>
 <li class="chapter" data-level="2.3" data-path="results.html"><a href="results.html#what-next"><i class="fa fa-check"></i><b>2.3</b> What next?</a></li>
 </ul></li>
-<li class="chapter" data-level="3" data-path="methods.html"><a href="methods.html"><i class="fa fa-check"></i><b>3</b> Methods</a><ul>
-<li class="chapter" data-level="3.1" data-path="methods.html"><a href="methods.html#dataset-details"><i class="fa fa-check"></i><b>3.1</b> Dataset details</a><ul>
-<li class="chapter" data-level="3.1.1" data-path="methods.html"><a href="methods.html#pbmc-dataset"><i class="fa fa-check"></i><b>3.1.1</b> PBMC dataset</a></li>
-<li class="chapter" data-level="3.1.2" data-path="methods.html"><a href="methods.html#thymus-dataset"><i class="fa fa-check"></i><b>3.1.2</b> Thymus dataset</a></li>
+<li class="chapter" data-level="3" data-path="discussion.html"><a href="discussion.html"><i class="fa fa-check"></i><b>3</b> Discussion</a></li>
+<li class="chapter" data-level="4" data-path="methods.html"><a href="methods.html"><i class="fa fa-check"></i><b>4</b> Methods</a><ul>
+<li class="chapter" data-level="4.1" data-path="methods.html"><a href="methods.html#dataset-details"><i class="fa fa-check"></i><b>4.1</b> Dataset details</a><ul>
+<li class="chapter" data-level="4.1.1" data-path="methods.html"><a href="methods.html#pbmc-dataset"><i class="fa fa-check"></i><b>4.1.1</b> PBMC dataset</a></li>
+<li class="chapter" data-level="4.1.2" data-path="methods.html"><a href="methods.html#thymus-dataset"><i class="fa fa-check"></i><b>4.1.2</b> Thymus dataset</a></li>
 </ul></li>
-<li class="chapter" data-level="3.2" data-path="methods.html"><a href="methods.html#data-preprocessing"><i class="fa fa-check"></i><b>3.2</b> Data preprocessing</a></li>
-<li class="chapter" data-level="3.3" data-path="methods.html"><a href="methods.html#scatac-seq-data-embedding"><i class="fa fa-check"></i><b>3.3</b> scATAC-seq data embedding</a></li>
-<li class="chapter" data-level="3.4" data-path="methods.html"><a href="methods.html#tested-integration-methods"><i class="fa fa-check"></i><b>3.4</b> Tested integration methods</a><ul>
-<li class="chapter" data-level="3.4.1" data-path="methods.html"><a href="methods.html#transfer-label"><i class="fa fa-check"></i><b>3.4.1</b> Label transfer</a></li>
+<li class="chapter" data-level="4.2" data-path="methods.html"><a href="methods.html#data-preprocessing"><i class="fa fa-check"></i><b>4.2</b> Data preprocessing</a></li>
+<li class="chapter" data-level="4.3" data-path="methods.html"><a href="methods.html#dimensionality-reduction-and-clustering"><i class="fa fa-check"></i><b>4.3</b> Dimensionality reduction and clustering</a></li>
+<li class="chapter" data-level="4.4" data-path="methods.html"><a href="methods.html#scatac-seq-data-embedding"><i class="fa fa-check"></i><b>4.4</b> scATAC-seq data embedding</a></li>
+<li class="chapter" data-level="4.5" data-path="methods.html"><a href="methods.html#tested-integration-methods"><i class="fa fa-check"></i><b>4.5</b> Tested integration methods</a><ul>
+<li class="chapter" data-level="4.5.1" data-path="methods.html"><a href="methods.html#transfer-label"><i class="fa fa-check"></i><b>4.5.1</b> Label transfer</a></li>
 </ul></li>
-<li class="chapter" data-level="3.5" data-path="methods.html"><a href="methods.html#metrics-for-comparison-of-integration-models"><i class="fa fa-check"></i><b>3.5</b> Metrics for comparison of integration models</a></li>
-<li class="chapter" data-level="3.6" data-path="methods.html"><a href="methods.html#ideas-for-less-agnostic-integration"><i class="fa fa-check"></i><b>3.6</b> Ideas for less “agnostic” integration</a></li>
-<li class="chapter" data-level="3.7" data-path="methods.html"><a href="methods.html#biological-interpretation-of-integration"><i class="fa fa-check"></i><b>3.7</b> Biological interpretation of integration</a></li>
-<li class="chapter" data-level="3.8" data-path="methods.html"><a href="methods.html#other-random-things"><i class="fa fa-check"></i><b>3.8</b> Other random things</a></li>
-<li class="chapter" data-level="" data-path="methods.html"><a href="methods.html#bibliography"><i class="fa fa-check"></i>Bibliography</a></li>
 </ul></li>
 </ul>
 
@@ -106,39 +102,43 @@
 
             <section class="normal" id="section-">
 <div id="methods" class="section level1">
-<h1><span class="header-section-number">3</span> Methods</h1>
+<h1><span class="header-section-number">4</span> Methods</h1>
 <div id="dataset-details" class="section level2">
-<h2><span class="header-section-number">3.1</span> Dataset details</h2>
+<h2><span class="header-section-number">4.1</span> Dataset details</h2>
 <p>Incl. stats about dataset quality (median no. of fragments per cell, perc. of fragments mapping to peaks, median no. of fragments in peaks per cell)</p>
 <div id="pbmc-dataset" class="section level3">
-<h3><span class="header-section-number">3.1.1</span> PBMC dataset</h3>
+<h3><span class="header-section-number">4.1.1</span> PBMC dataset</h3>
 <p>I used datasets of Peripheral Blood Mononuclear Cells (PBMCs) provided by 10X genomics. Raw scRNA-seq counts were extracted from the R object provided by the Seurat package [cit] (downloaded <a href="https://www.dropbox.com/s/3f3p5nxrn5b3y4y/pbmc_10k_v3.rds?dl=1">here</a>). Raw scATAC-seq fragments were converted to a <code>snap</code> file using <code>snaptools</code> (downloaded from <a href="http://renlab.sdsc.edu/r3fang//share/github/PBMC_ATAC_RNA/atac_pbmc_10k_nextgem.snap">here</a>).</p>
 </div>
 <div id="thymus-dataset" class="section level3">
-<h3><span class="header-section-number">3.1.2</span> Thymus dataset</h3>
-<p>I used a dataset of developing thymus at <em>n</em> weeks post conception. scATAC-seq and scRNA-seq profiles were measured from tissue samples of the same donor. Cell type annotation was provided by the authors of the original study.</p>
+<h3><span class="header-section-number">4.1.2</span> Thymus dataset</h3>
+<p>I used a dataset of developing thymus at <em>n</em> weeks post conception. scATAC-seq and scRNA-seq profiles were measured from tissue samples of the same donor.</p>
 </div>
 </div>
 <div id="data-preprocessing" class="section level2">
-<h2><span class="header-section-number">3.2</span> Data preprocessing</h2>
-<p><strong>ATAC-seq featurization</strong>
-ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addition, methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. Different papers use different strategies to preprocess ATAC-seq data and featurization (benchmarked by <span class="citation">Chen et al. (<a href="#ref-chenAssessmentComputationalMethods2019a" role="doc-biblioref">2019</a>)</span>):</p>
-<ul>
-<li><strong>Seurat pipeline</strong>: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v …). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream <span class="citation">(Welch et al. <a href="#ref-welchSingleCellMultiomicIntegration2019a" role="doc-biblioref">2019</a>; Stuart et al. <a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span>.</li>
-<li><strong>SNAP-ATAC pipeline:</strong> the genome is binned, then a cell x bin binary matrix is constructed. From this binary matrix a gene-level matrix is made <span class="citation">(“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types,” <a href="#ref-FastAccurateClusteringa" role="doc-biblioref">n.d.</a>)</span>.</li>
-<li><strong>PCA based on bulk:</strong> some studies <span class="citation">(Buenrostro et al. <a href="#ref-buenrostroIntegratedSingleCellAnalysis2018" role="doc-biblioref">2018</a>)</span> find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations.</li>
-<li><strong>LSI method:</strong> this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy).</li>
-</ul>
-<p>Fragment files for scATAC-seq data were generated using the CellRanger pipeline. For preprocessing and quality control of scATAC-seq data we used the SnapATAC pipeline <span class="citation">(“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types,” <a href="#ref-FastAccurateClusteringa" role="doc-biblioref">n.d.</a>)</span>. Briefly, high-quality cell barcodes are selected based on the number of unique fragments and the ratio of fragments in gene promoters. Then, the genome is binned into fixed-size windows (selected bin size: 5 kb) and a bin x cell binary count matrix is generated estimating coverage for each bin. Bins that overlap ENCODE-defined blacklist regions are filtered out, as well as bins with excidingly high or low z-scored coverage. A cell x gene count matrix is generated aggregating bin coverage over the gene bodies.</p>
-<p><strong>Common preprocessing</strong> Cells with high expression of mitochondrial genes were filtered out of the scRNA-seq dataset. For both datasets, raw counts <span class="math inline">\(c\)</span> were normalized by total cell coverage and converted to <span class="math inline">\(log(c + 1)\)</span> as a variance stabilizing transformation.</p>
+<h2><span class="header-section-number">4.2</span> Data preprocessing</h2>
+<p><strong>ATAC-seq:</strong></p>
+<!-- **ATAC-seq featurization** -->
+<!-- ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addition, methods for alignment with scRNA-seq data mostly require to reduce accessibility signal to gene-level features. Different papers use different strategies to preprocess ATAC-seq data and featurization (benchmarked by @chenAssessmentComputationalMethods2019a): -->
+<!-- - **Seurat pipeline**: raw 10x sequencing reads were preprocessed to call peaks with Cellranger (v ...). Then all counts in peaks are summed up all counts in peaks within gene bodies + 2kb upstream [@welchSingleCellMultiomicIntegration2019a; @stuartComprehensiveIntegrationSingleCell2019a]. -->
+<!-- - **SNAP-ATAC pipeline:** the genome is binned, then a cell x bin binary matrix is constructed. From this binary matrix a gene-level matrix is made [@FastAccurateClusteringa]. -->
+<!-- - **PCA based on bulk:** some studies [@buenrostroIntegratedSingleCellAnalysis2018] find principal components of differentiation/cell type from bulk ATAC-seq datasets and then project the single-cells on the same space. Arguably, this will lead to miss out on accessibility dynamics of rare cell populations. -->
+<!-- - **LSI method:** this procedure starts by making a bin x cell matrix. Then normalization and rescaling are done using term frequency-inverse document frequency transformation (something from text mining), then SVD is performed to obtain a PC x cell matrix. This is used to cluster cells and peaks are called on the clusters. Then the peak x cell matrix is used to do PCA again (I am getting dizzy). -->
+<p>ScATAC-seq reads were aligned and preprocessed using CellRanger (10X genomics). For preprocessing and quality control of scATAC-seq data we used the SnapATAC pipeline <span class="citation">(<span class="citeproc-not-found" data-reference-id="FastAccurateClustering2019"><strong>???</strong></span>)</span>. Briefly, we selected high-quality cell barcodes based on the number of unique fragments and the ratio of fragments in gene promoters. Then, we binned the genome into fixed-size windows (selected bin size: 5 kb) and generated a bin x cell binary matrix estimating coverage for each bin. We filtered out bins that overlap ENCODE-defined blacklist regions, as well as bins with excidingly high or low z-scored coverage.</p>
+<p>We generated cell-by-gene count matrices by aggregating bin coverage over the gene bodies and promoters (2kb upstream of transcriptional start site). We then generated a second cell-by-gene matrix binarizing the count matrix.</p>
+<p><strong>RNA-seq:</strong> cells with high expression of mitochondrial genes were filtered out. Raw counts <span class="math inline">\(c\)</span> were normalized by total cell coverage and converted to <span class="math inline">\(log(c + 1)\)</span> as a variance stabilizing transformation.</p>
 <p><strong>Feature selection</strong> For label transfer, we select informative genes by taking the union of the 2000 most highly variable genes (HVGs) in scRNA-seq and scATAC-seq datasets (using the Seurat function <code>FindVariableGenes</code>). Other studies have used only the HVGs from the reference dataset (in most cases the scRNA-seq). We found that these two feature selection strategies gave similar label transfer results and we opted for the union to avoid selecting only genes that have very low coverage in the ATAC-seq data.</p>
 </div>
+<div id="dimensionality-reduction-and-clustering" class="section level2">
+<h2><span class="header-section-number">4.3</span> Dimensionality reduction and clustering</h2>
+<p>We used principal component analysis as a low dimensional representation of scRNA-seq datasets. Unless otherwise stated, we used Latent Semantic Indexing for dimensionality reduction of accessibility matrices, as proposed by <span class="citation">Cusanovich et al. (<a href="#ref-cusanovichMultiplexSinglecellProfiling2015">2015</a>)</span>. For data visualization, we used the Uniform Manifold Approximation and Projection (UMAP) algorithm <span class="citation">(McInnes, Healy, and Melville <a href="#ref-mcinnesUMAPUniformManifold2018">2018</a>)</span> on low-dimensional data representation.</p>
+</div>
 <div id="scatac-seq-data-embedding" class="section level2">
-<h2><span class="header-section-number">3.3</span> scATAC-seq data embedding</h2>
-<p>We performed dimensionality reduction on the bin x cell accessibility matrix using the diffusion map algorithm implemented by SnapATAC. After selection of signification dimensions, we embedded cells for visualization in 2D using the UMAP algorithm.</p>
+<h2><span class="header-section-number">4.4</span> scATAC-seq data embedding</h2>
+<p>We performed dimensionality reduction on the bin x cell accessibility matrix using Latent Semantic Indexing as implemented in Seurat. After selection of signification dimensions, we embedded cells for visualization in 2D using the UMAP algorithm.</p>
 </div>
 <div id="tested-integration-methods" class="section level2">
-<h2><span class="header-section-number">3.4</span> Tested integration methods</h2>
+<h2><span class="header-section-number">4.5</span> Tested integration methods</h2>
 <table>
 <colgroup>
 <col width="14%" />
@@ -159,192 +159,142 @@ ATAC-seq data is inherently sparse and noisy, more so than RNA-seq data. In addi
 <tbody>
 <tr class="odd">
 <td>Seurat CCA</td>
-<td><span class="citation">Stuart et al. (<a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span></td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="stuartComprehensiveIntegrationSingleCell2019a"><strong>???</strong></span>)</span></td>
 <td align="left">Pairing of cells based on Canonical Correlation analysis</td>
 <td align="center">Yes</td>
 <td align="center">/</td>
 </tr>
 <tr class="even">
 <td>LIGER</td>
-<td><span class="citation">Welch et al. (<a href="#ref-welchSingleCellMultiomicIntegration2019a" role="doc-biblioref">2019</a>)</span></td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="welchSingleCellMultiomicIntegration2019a"><strong>???</strong></span>)</span></td>
 <td align="left">Joint Non-Negative Matrix factorization</td>
 <td align="center">Yes</td>
 <td align="center">/</td>
 </tr>
 <tr class="odd">
 <td>Conos</td>
-<td>Barkas et al. 2019 <span class="citation">(<span class="citeproc-not-found" data-reference-id="barkasJointAnalysisHeterogeneous2019"><strong>???</strong></span>)</span></td>
+<td><span class="citation">Barkas et al. (<a href="#ref-barkasJointAnalysisHeterogeneous2019">2019</a>)</span></td>
 <td align="left">Joint neighboorhood graph construction</td>
 <td align="center">Yes</td>
 <td align="center">/</td>
 </tr>
 <tr class="even">
 <td>scGen</td>
-<td><span class="citation">Lotfollahi, Wolf, and Theis (<a href="#ref-lotfollahiScGenPredictsSinglecell2019" role="doc-biblioref">2019</a>)</span></td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="lotfollahiScGenPredictsSinglecell2019"><strong>???</strong></span>)</span></td>
 <td align="left">Joint embedding with Variational Autoencoder</td>
 <td align="center">No</td>
 <td align="center">Requires cell type annotation in both datasets</td>
 </tr>
 <tr class="odd">
 <td>totalVI</td>
-<td><span class="citation">Gayoso et al. (<a href="#ref-gayosoJointModelRNA2019" role="doc-biblioref">2019</a>)</span></td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="gayosoJointModelRNA2019"><strong>???</strong></span>)</span></td>
 <td align="left">generative model + variational inference</td>
 <td align="center">No</td>
 <td align="center">Requires multi-omic data from the same single-cells</td>
 </tr>
 <tr class="even">
 <td>BBKNN</td>
-<td><span class="citation">Polański et al. (<a href="#ref-polanskiBBKNNFastBatch" role="doc-biblioref">n.d.</a>)</span></td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="polanskiBBKNNFastBatch"><strong>???</strong></span>)</span></td>
 <td align="left">Joint neighboorhood graph construction</td>
 <td align="center">No</td>
 <td align="center">Bad alignment during testing</td>
 </tr>
 <tr class="odd">
 <td>Cusanovich2018</td>
-<td><span class="citation">Cusanovich et al. (<a href="#ref-cusanovichSingleCellAtlasVivo2018a" role="doc-biblioref">2018</a>)</span></td>
+<td><span class="citation">(<span class="citeproc-not-found" data-reference-id="cusanovichSingleCellAtlasVivo2018a"><strong>???</strong></span>)</span></td>
 <td align="left">Joint neighboorhood graph construction</td>
 <td align="center">No</td>
 <td align="center">Code unavailable</td>
 </tr>
+<tr class="even">
+<td>gimVI</td>
+<td><span class="citation">Lopez et al. (<a href="#ref-lopezJointModelUnpaired2019">2019</a>)</span></td>
+<td align="left">joint generative model + variational inference</td>
+<td align="center">No</td>
+<td align="center">No implementation for right log-likelihood distribution</td>
+</tr>
 </tbody>
 </table>
 <div id="transfer-label" class="section level3">
-<h3><span class="header-section-number">3.4.1</span> Label transfer</h3>
+<h3><span class="header-section-number">4.5.1</span> Label transfer</h3>
 <p>One of the key tasks for integration methods is to be able to transfer cell type annotations learnt from a reference to a query dataset. This is especially useful if the query is a scATAC-seq dataset, where calling of cell types based on prior knownledge on marker genes is often not possible. Different models are adapted to transfer discrete cell state labels derived from gene expression to cells measured with scATAC-seq.</p>
 <div id="seurat-cca" class="section level5">
-<h5><span class="header-section-number">3.4.1.0.1</span> Seurat CCA</h5>
-<p>Identified anchor pairs are weighted based on the query cell local neighboorhood (the k nearest anchors) and the anchor score. The obtained reference cells x query cells weight matrix is then multiplied by the matrix of annotation x reference cells, to generate a query cell x annotation matrix. This returns a prediction score for each class for every cell in the query dataset, ranging from 0 to 1 <span class="citation">(Stuart et al. <a href="#ref-stuartComprehensiveIntegrationSingleCell2019a" role="doc-biblioref">2019</a>)</span>.</p>
+<h5><span class="header-section-number">4.5.1.0.1</span> Seurat CCA</h5>
+<p>Identified anchor pairs are weighted based on the query cell local neighboorhood (the k nearest anchors) and the anchor score. The obtained reference cells x query cells weight matrix is then multiplied by the matrix of annotation x reference cells, to generate a query cell x annotation matrix. This returns a prediction score for each class for every cell in the query dataset, ranging from 0 to 1 <span class="citation">(<span class="citeproc-not-found" data-reference-id="stuartComprehensiveIntegrationSingleCell2019a"><strong>???</strong></span>)</span>.</p>
 </div>
 <div id="liger" class="section level5">
-<h5><span class="header-section-number">3.4.1.0.2</span> LIGER</h5>
+<h5><span class="header-section-number">4.5.1.0.2</span> LIGER</h5>
 <p>While the authors do not describe a method for transferring discrete labels, I adapted their strategy for feature imputation. I build a cross-dataset KNN graph in the aligned factor space, then I assign each query cell to the most abundant label between the k nearest neighbors in the reference dataset (k=30). The prediction score for label <span class="math inline">\(l\)</span> is computed as the fraction of nearest neighbors that have the predicted label.
 <span class="math display">\[
 score = \frac{count(l)}{k}
 \]</span></p>
 </div>
 <div id="conos" class="section level5">
-<h5><span class="header-section-number">3.4.1.0.3</span> Conos</h5>
-<p>Label transfer is treated as a general problem of information propagation between vertices of the common graph (detailed in <span class="citation">(<span class="citeproc-not-found" data-reference-id="barkasJointAnalysisHeterogeneous2019"><strong>???</strong></span>)</span>). The label score is the label probability updating during the diffusion process.</p>
+<h5><span class="header-section-number">4.5.1.0.3</span> Conos</h5>
+<p>Label transfer is treated as a general problem of information propagation between vertices of the common graph (detailed in <span class="citation">Barkas et al. (<a href="#ref-barkasJointAnalysisHeterogeneous2019">2019</a>)</span>). The label score is the label probability updating during the diffusion process.</p>
 <!-- ## Uniform output for all methods  -->
 <!-- - Impute transcriptomic data -->
 <!-- - **Transfer labels from RNA-seq to ATAC-seq** -->
-</div>
-</div>
-</div>
-<div id="metrics-for-comparison-of-integration-models" class="section level2">
-<h2><span class="header-section-number">3.5</span> Metrics for comparison of integration models</h2>
-<p>Problems: finding optimal distance metric for gene accessibility and expression (correlation doesn’t work, too sparse).
-(Or more general: how to relate features from different datasets)
-Nearest neighbors in PCA? How to make a nearest neighbor graph between modalities
-- MNN cosine normalizes each batch and then calculates distances</p>
-<ul>
-<li>PCA on integrated space and find genes with high eigen values</li>
-<li>How to denoise the ATAC data??</li>
-</ul>
-<ol start="2" style="list-style-type: decimal">
-<li>Robustness to different fractions of cells in ATAC dataset</li>
-<li>Leave-one-out approach for imputed data</li>
-<li><strong>Fraction of unassigned cells</strong> (but how to distinguish unassigned and badly assigned?): prediction score from label transfer</li>
-<li><strong>Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies</strong></li>
-<li><strong>Robustness to parameter picking (e.g. no. of factors)</strong></li>
-<li>Agreement metric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell’s NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values.</li>
-<li><strong>Expression not at random of markers after integration:</strong> is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator
-<ul>
-<li>Find marker genes from RNA only</li>
-<li>Measure non-random expression in RNA only</li>
-</ul></li>
-<li><strong>pySCENIC on RNA only or integration w ATAC seq</strong></li>
-</ol>
-</div>
-<div id="ideas-for-less-agnostic-integration" class="section level2">
-<h2><span class="header-section-number">3.6</span> Ideas for less “agnostic” integration</h2>
-<ol style="list-style-type: decimal">
-<li>Select only a certain lineage of cells (e.g. that you can align in pseudotime)</li>
-<li>Annotation of cell types also in ATAC-seq data (e.g. to use scGen)</li>
-<li>Considering enhancer accessibility (matching them to genes??)</li>
-</ol>
-</div>
-<div id="biological-interpretation-of-integration" class="section level2">
-<h2><span class="header-section-number">3.7</span> Biological interpretation of integration</h2>
-<p>In Cusanovich et al. 2018 they identify differentially accessible sites &amp; cluster specific accessibility patterns.</p>
-</div>
-<div id="other-random-things" class="section level2">
-<h2><span class="header-section-number">3.8</span> Other random things</h2>
-<ul>
-<li>How does ATAC improve the RNA? Can we detect cell clusters/populations that are highly homogeneous in the RNA
-but display significant variability at the accessibility level? But what is variability in super noisy ATAC seq?</li>
-<li>Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?)
-Could be done on the time series data <span class="citation">Svensson and Pachter (<a href="#ref-svenssonInterpretableFactorModels2019" role="doc-biblioref">2019</a>)</span></li>
-<li>Clonality of epigenetic modifications ATAC + TCR tracing</li>
-</ul>
-</div>
-<div id="bibliography" class="section level2 unnumbered">
-<h2>Bibliography</h2>
+<!-- ## Metrics for comparison of integration models -->
+<!-- Problems: finding optimal distance metric for gene accessibility and expression (correlation doesn't work, too sparse).  -->
+<!-- (Or more general: how to relate features from different datasets) -->
+<!-- Nearest neighbors in PCA? How to make a nearest neighbor graph between modalities  -->
+<!-- - MNN cosine normalizes each batch and then calculates distances  -->
+<!-- - PCA on integrated space and find genes with high eigen values -->
+<!-- - How to denoise the ATAC data?? -->
+<!-- 2) Robustness to different fractions of cells in ATAC dataset -->
+<!-- 3) Leave-one-out approach for imputed data -->
+<!-- 4) **Fraction of unassigned cells** (but how to distinguish unassigned and badly assigned?): prediction score from label transfer  -->
+<!-- 5) **Joint clustering: purity of cell type annotation inside a cluster, mixing within the same cluster between different technologies** -->
+<!-- 6) **Robustness to parameter picking (e.g. no. of factors)** -->
+<!-- 7) Agreement metric defined by Welch et al. 2019: compare KNN graph of single datasets with KNN graph in integrated space, then calculate how many of each cell's NNs in the single dataset graph are also NNs in the integrated graph. Welch et al. compare NN graphs built with different factor models to compare CCA and LIGER performance. I build for all methods KNN graphs from the PCA projection of imputed values. -->
+<!-- 8) **Expression not at random of markers after integration:** is the structure that is clear in the RNA maintained after embedding w the ATAC? From idea of JP collaborator -->
+<!--     - Find marker genes from RNA only -->
+<!--     - Measure non-random expression in RNA only -->
+<!-- 9) **pySCENIC on RNA only or integration w ATAC seq** -->
+<!-- ## Ideas for less "agnostic" integration -->
+<!-- 1) Select only a certain lineage of cells (e.g. that you can align in pseudotime) -->
+<!-- 2) Annotation of cell types also in ATAC-seq data (e.g. to use scGen) -->
+<!-- 3) Considering enhancer accessibility (matching them to genes??)  -->
+<!-- ## Biological interpretation of integration -->
+<!-- In Cusanovich et al. 2018 they identify differentially accessible sites & cluster specific accessibility patterns. -->
+<!-- ## Other random things -->
+<!-- - How does ATAC improve the RNA? Can we detect cell clusters/populations that are highly homogeneous in the RNA -->
+<!-- but display significant variability at the accessibility level? But what is variability in super noisy ATAC seq? -->
+<!-- - Studying pioneering TFs: temporal relationship between TF expression and accessibility (are they really opening chromatin?)  -->
+<!-- Could be done on the time series data @svenssonInterpretableFactorModels2019 -->
+<!-- - Clonality of epigenetic modifications ATAC + TCR tracing  -->
 <div id="refs" class="references">
 <div>
-<p>Buenrostro, Jason D., M. Ryan Corces, Caleb A. Lareau, Beijing Wu, Alicia N. Schep, Martin J. Aryee, Ravindra Majeti, Howard Y. Chang, and William J. Greenleaf. 2018. “Integrated Single-Cell Analysis Maps the Continuous Regulatory Landscape of Human Hematopoietic Differentiation.” <em>Cell</em> 173 (6): 1535–1548.e16. <a href="https://doi.org/10.1016/j.cell.2018.03.074">https://doi.org/10.1016/j.cell.2018.03.074</a>.</p>
+<p>Barkas, Nikolas, Viktor Petukhov, Daria Nikolaeva, Yaroslav Lozinsky, Samuel Demharter, Konstantin Khodosevich, and Peter V. Kharchenko. 2019. “Joint Analysis of Heterogeneous Single-Cell RNA-Seq Dataset Collections.” <em>Nature Methods</em> 16 (8): 695–98. <a href="https://doi.org/10.1038/s41592-019-0466-z">https://doi.org/10.1038/s41592-019-0466-z</a>.</p>
 </div>
 <div>
-<p>Chen, Huidong, Caleb Lareau, Tommaso Andreani, Michael E. Vinyard, Sara P. Garcia, Kendell Clement, Miguel A. Andrade-Navarro, Jason D. Buenrostro, and Luca Pinello. 2019. “Assessment of Computational Methods for the Analysis of Single-Cell ATAC-Seq Data.” <em>bioRxiv</em>, August, 739011. <a href="https://doi.org/10.1101/739011">https://doi.org/10.1101/739011</a>.</p>
+<p>Cusanovich, Darren A., Riza Daza, Andrew Adey, Hannah A. Pliner, Lena Christiansen, Kevin L. Gunderson, Frank J. Steemers, Cole Trapnell, and Jay Shendure. 2015. “Multiplex Single-Cell Profiling of Chromatin Accessibility by Combinatorial Cellular Indexing.” <em>Science</em> 348 (6237): 910–14. <a href="https://doi.org/10.1126/science.aab1601">https://doi.org/10.1126/science.aab1601</a>.</p>
 </div>
 <div>
-<p>Cusanovich, Darren A., Andrew J. Hill, Delasa Aghamirzaie, Riza M. Daza, Hannah A. Pliner, Joel B. Berletch, Galina N. Filippova, et al. 2018. “A Single-Cell Atlas of in Vivo Mammalian Chromatin Accessibility.” <em>Cell</em> 174 (5): 1309–1324.e18. <a href="https://doi.org/10.1016/j.cell.2018.06.052">https://doi.org/10.1016/j.cell.2018.06.052</a>.</p>
+<p>Lopez, Romain, Achille Nazaret, Maxime Langevin, Jules Samaran, Jeffrey Regier, Michael I. Jordan, and Nir Yosef. 2019. “A Joint Model of Unpaired Data from scRNA-Seq and Spatial Transcriptomics for Imputing Missing Gene Expression Measurements.” <em>arXiv:1905.02269 [Cs, Q-Bio, Stat]</em>, May. <a href="http://arxiv.org/abs/1905.02269">http://arxiv.org/abs/1905.02269</a>.</p>
 </div>
 <div>
-<p>“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types.” n.d., 41.</p>
+<p>McInnes, Leland, John Healy, and James Melville. 2018. “UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction.” <em>arXiv:1802.03426 [Cs, Stat]</em>, December. <a href="http://arxiv.org/abs/1802.03426">http://arxiv.org/abs/1802.03426</a>.</p>
 </div>
-<div>
-<p>Gayoso, Adam, Romain Lopez, Zoë Steier, Jeffrey Regier, Aaron Streets, and Nir Yosef. 2019. “A Joint Model of RNA Expression and Surface Protein Abundance in Single Cells.” <em>bioRxiv</em>, October, 791947. <a href="https://doi.org/10.1101/791947">https://doi.org/10.1101/791947</a>.</p>
 </div>
-<div>
-<p>Lotfollahi, Mohammad, F. Alexander Wolf, and Fabian J. Theis. 2019. “scGen Predicts Single-Cell Perturbation Responses.” <em>Nature Methods</em> 16 (8): 715. <a href="https://doi.org/10.1038/s41592-019-0494-8">https://doi.org/10.1038/s41592-019-0494-8</a>.</p>
-</div>
-<div>
-<p>Polański, Krzysztof, Matthew D. Young, Zhichao Miao, Kerstin B. Meyer, Sarah A. Teichmann, and Jong-Eun Park. n.d. “BBKNN: Fast Batch Alignment of Single Cell Transcriptomes.” <em>Bioinformatics</em>. Accessed October 3, 2019. <a href="https://doi.org/10.1093/bioinformatics/btz625">https://doi.org/10.1093/bioinformatics/btz625</a>.</p>
-</div>
-<div>
-<p>Stuart, Tim, Andrew Butler, Paul Hoffman, Christoph Hafemeister, Efthymia Papalexi, William M. Mauck, Yuhan Hao, Marlon Stoeckius, Peter Smibert, and Rahul Satija. 2019. “Comprehensive Integration of Single-Cell Data.” <em>Cell</em> 177 (7): 1888–1902.e21. <a href="https://doi.org/10.1016/j.cell.2019.05.031">https://doi.org/10.1016/j.cell.2019.05.031</a>.</p>
-</div>
-<div>
-<p>Svensson, Valentine, and Lior Pachter. 2019. “Interpretable Factor Models of Single-Cell RNA-Seq via Variational Autoencoders.” Preprint. Bioinformatics. <a href="https://doi.org/10.1101/737601">https://doi.org/10.1101/737601</a>.</p>
-</div>
-<div>
-<p>Welch, Joshua D., Velina Kozareva, Ashley Ferreira, Charles Vanderburg, Carly Martin, and Evan Z. Macosko. 2019. “Single-Cell Multi-Omic Integration Compares and Contrasts Features of Brain Cell Identity.” <em>Cell</em> 177 (7): 1873–1887.e17. <a href="https://doi.org/10.1016/j.cell.2019.05.006">https://doi.org/10.1016/j.cell.2019.05.006</a>.</p>
 </div>
 </div>
 </div>
 </div>
 <h3>References</h3>
 <div id="refs" class="references">
-<div id="ref-buenrostroIntegratedSingleCellAnalysis2018">
-<p>Buenrostro, Jason D., M. Ryan Corces, Caleb A. Lareau, Beijing Wu, Alicia N. Schep, Martin J. Aryee, Ravindra Majeti, Howard Y. Chang, and William J. Greenleaf. 2018. “Integrated Single-Cell Analysis Maps the Continuous Regulatory Landscape of Human Hematopoietic Differentiation.” <em>Cell</em> 173 (6): 1535–1548.e16. <a href="https://doi.org/10.1016/j.cell.2018.03.074">https://doi.org/10.1016/j.cell.2018.03.074</a>.</p>
+<div id="ref-barkasJointAnalysisHeterogeneous2019">
+<p>Barkas, Nikolas, Viktor Petukhov, Daria Nikolaeva, Yaroslav Lozinsky, Samuel Demharter, Konstantin Khodosevich, and Peter V. Kharchenko. 2019. “Joint Analysis of Heterogeneous Single-Cell RNA-Seq Dataset Collections.” <em>Nature Methods</em> 16 (8): 695–98. <a href="https://doi.org/10.1038/s41592-019-0466-z">https://doi.org/10.1038/s41592-019-0466-z</a>.</p>
 </div>
-<div id="ref-chenAssessmentComputationalMethods2019a">
-<p>Chen, Huidong, Caleb Lareau, Tommaso Andreani, Michael E. Vinyard, Sara P. Garcia, Kendell Clement, Miguel A. Andrade-Navarro, Jason D. Buenrostro, and Luca Pinello. 2019. “Assessment of Computational Methods for the Analysis of Single-Cell ATAC-Seq Data.” <em>bioRxiv</em>, August, 739011. <a href="https://doi.org/10.1101/739011">https://doi.org/10.1101/739011</a>.</p>
+<div id="ref-cusanovichMultiplexSinglecellProfiling2015">
+<p>Cusanovich, Darren A., Riza Daza, Andrew Adey, Hannah A. Pliner, Lena Christiansen, Kevin L. Gunderson, Frank J. Steemers, Cole Trapnell, and Jay Shendure. 2015. “Multiplex Single-Cell Profiling of Chromatin Accessibility by Combinatorial Cellular Indexing.” <em>Science</em> 348 (6237): 910–14. <a href="https://doi.org/10.1126/science.aab1601">https://doi.org/10.1126/science.aab1601</a>.</p>
 </div>
-<div id="ref-cusanovichSingleCellAtlasVivo2018a">
-<p>Cusanovich, Darren A., Andrew J. Hill, Delasa Aghamirzaie, Riza M. Daza, Hannah A. Pliner, Joel B. Berletch, Galina N. Filippova, et al. 2018. “A Single-Cell Atlas of in Vivo Mammalian Chromatin Accessibility.” <em>Cell</em> 174 (5): 1309–1324.e18. <a href="https://doi.org/10.1016/j.cell.2018.06.052">https://doi.org/10.1016/j.cell.2018.06.052</a>.</p>
+<div id="ref-lopezJointModelUnpaired2019">
+<p>Lopez, Romain, Achille Nazaret, Maxime Langevin, Jules Samaran, Jeffrey Regier, Michael I. Jordan, and Nir Yosef. 2019. “A Joint Model of Unpaired Data from scRNA-Seq and Spatial Transcriptomics for Imputing Missing Gene Expression Measurements.” <em>arXiv:1905.02269 [Cs, Q-Bio, Stat]</em>, May. <a href="http://arxiv.org/abs/1905.02269">http://arxiv.org/abs/1905.02269</a>.</p>
 </div>
-<div id="ref-FastAccurateClusteringa">
-<p>“Fast and Accurate Clustering of Single Cell Epigenomes Reveals Cis-Regulatory Elements in Rare Cell Types.” n.d., 41.</p>
-</div>
-<div id="ref-gayosoJointModelRNA2019">
-<p>Gayoso, Adam, Romain Lopez, Zoë Steier, Jeffrey Regier, Aaron Streets, and Nir Yosef. 2019. “A Joint Model of RNA Expression and Surface Protein Abundance in Single Cells.” <em>bioRxiv</em>, October, 791947. <a href="https://doi.org/10.1101/791947">https://doi.org/10.1101/791947</a>.</p>
-</div>
-<div id="ref-lotfollahiScGenPredictsSinglecell2019">
-<p>Lotfollahi, Mohammad, F. Alexander Wolf, and Fabian J. Theis. 2019. “scGen Predicts Single-Cell Perturbation Responses.” <em>Nature Methods</em> 16 (8): 715. <a href="https://doi.org/10.1038/s41592-019-0494-8">https://doi.org/10.1038/s41592-019-0494-8</a>.</p>
-</div>
-<div id="ref-polanskiBBKNNFastBatch">
-<p>Polański, Krzysztof, Matthew D. Young, Zhichao Miao, Kerstin B. Meyer, Sarah A. Teichmann, and Jong-Eun Park. n.d. “BBKNN: Fast Batch Alignment of Single Cell Transcriptomes.” <em>Bioinformatics</em>. Accessed October 3, 2019. <a href="https://doi.org/10.1093/bioinformatics/btz625">https://doi.org/10.1093/bioinformatics/btz625</a>.</p>
-</div>
-<div id="ref-stuartComprehensiveIntegrationSingleCell2019a">
-<p>Stuart, Tim, Andrew Butler, Paul Hoffman, Christoph Hafemeister, Efthymia Papalexi, William M. Mauck, Yuhan Hao, Marlon Stoeckius, Peter Smibert, and Rahul Satija. 2019. “Comprehensive Integration of Single-Cell Data.” <em>Cell</em> 177 (7): 1888–1902.e21. <a href="https://doi.org/10.1016/j.cell.2019.05.031">https://doi.org/10.1016/j.cell.2019.05.031</a>.</p>
-</div>
-<div id="ref-svenssonInterpretableFactorModels2019">
-<p>Svensson, Valentine, and Lior Pachter. 2019. “Interpretable Factor Models of Single-Cell RNA-Seq via Variational Autoencoders.” Preprint. Bioinformatics. <a href="https://doi.org/10.1101/737601">https://doi.org/10.1101/737601</a>.</p>
-</div>
-<div id="ref-welchSingleCellMultiomicIntegration2019a">
-<p>Welch, Joshua D., Velina Kozareva, Ashley Ferreira, Charles Vanderburg, Carly Martin, and Evan Z. Macosko. 2019. “Single-Cell Multi-Omic Integration Compares and Contrasts Features of Brain Cell Identity.” <em>Cell</em> 177 (7): 1873–1887.e17. <a href="https://doi.org/10.1016/j.cell.2019.05.006">https://doi.org/10.1016/j.cell.2019.05.006</a>.</p>
+<div id="ref-mcinnesUMAPUniformManifold2018">
+<p>McInnes, Leland, John Healy, and James Melville. 2018. “UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction.” <em>arXiv:1802.03426 [Cs, Stat]</em>, December. <a href="http://arxiv.org/abs/1802.03426">http://arxiv.org/abs/1802.03426</a>.</p>
 </div>
 </div>
             </section>
@@ -352,7 +302,7 @@ Could be done on the time series data <span class="citation">Svensson and Pachte
           </div>
         </div>
       </div>
-<a href="results.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="discussion.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
 
     </div>
   </div>
