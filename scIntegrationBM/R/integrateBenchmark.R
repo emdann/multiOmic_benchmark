@@ -13,8 +13,8 @@ library(SingleCellExperiment)
 library(MultiAssayExperiment)
 library(magrittr)
 library(FastKNN)
-source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
-source("~/multiOmic_benchmark/utils.R")
+# source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
+# source("~/multiOmic_benchmark/utils.R")
 })
 
 ### Transfer Labels ###
