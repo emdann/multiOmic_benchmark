@@ -17,29 +17,29 @@ source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
 source("~/multiOmic_benchmark/utils.R")
 })
 
-### Wrapper function ###
-run_integration <- function(sce.list, method, n_features, feature.selection = "union_hvg", reference="RNA", query="ATAC"){
-  ## Select integration features
-  if (feature.selection=="reference_hvg") {
-    integrate_features <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
-  } else if (feature.selection == "union_hvg"){
-    integrate_features_ref <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
-    integrate_features_query <- HVG_Seurat(sce.list[[query]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[reference]])]}
-    integrate_features <- union(integrate_features_ref, integrate_features_query)
-  } else {
-      stop("Invalid feature selection method: please specify one of 'reference_hvg' or 'union_hvg' ")
-    }
-  if (method == "CCA") {
-    integrate <- integrate_seuratCCA
-  } else if (method == "liger") {
-    integrate <- integrate_liger
-  } else {
-    stop("invalid integration method. Please specify one of 'CCA', 'liger'")
-  }
-  int_output <- integrate(sce.list, integrate_features, reference=reference, query=query)
-  int_output[["integrate_features"]] <- integrate_features
-  return(int_output)  
-  }
+# ### Wrapper function ###
+# run_integration <- function(sce.list, method, n_features, feature.selection = "union_hvg", reference="RNA", query="ATAC"){
+#   ## Select integration features
+#   if (feature.selection=="reference_hvg") {
+#     integrate_features <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
+#   } else if (feature.selection == "union_hvg"){
+#     integrate_features_ref <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
+#     integrate_features_query <- HVG_Seurat(sce.list[[query]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[reference]])]}
+#     integrate_features <- union(integrate_features_ref, integrate_features_query)
+#   } else {
+#       stop("Invalid feature selection method: please specify one of 'reference_hvg' or 'union_hvg' ")
+#     }
+#   if (method == "CCA") {
+#     integrate <- integrate_seuratCCA
+#   } else if (method == "liger") {
+#     integrate <- integrate_liger
+#   } else {
+#     stop("invalid integration method. Please specify one of 'CCA', 'liger'")
+#   }
+#   int_output <- integrate(sce.list, integrate_features, reference=reference, query=query)
+#   int_output[["integrate_features"]] <- integrate_features
+#   return(int_output)  
+#   }
 
 
 ### Integration models ###
@@ -247,6 +247,7 @@ run_SeuratCCA <- function(sce.list, integrate_features, reference="RNA", query="
                                           reduction = "cca")
   return(list(model=transfer.anchors, input=seurat.list))
   }
+
 #' LIGER NMF model
 
 #' @param sce.list list of SingleCellExperiment objects for RNA and ATAC seq datasets
@@ -308,42 +309,3 @@ propagateNNannotation <- function(nn.vector, annotation){
   list(predicted.id=predicted.id, score=label.fraction)
 }
 
-## Running benchmark
-# sce.list <- readRDS(file = "my_data/integrated_thymus/F74_SCElist_20191101.RDS")
-# small.sce.list <- map(sce.list, ~ .x[,1:500])
-# 
-# reference='RNA'
-# query="ATAC"
-# n_features = 2000
-# 
-# ## Feature selection
-# integrate_features_ref <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
-# integrate_features_query <- HVG_Seurat(sce.list[[query]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[reference]])]}
-# integrate_features <- union(integrate_features_ref, integrate_features_query)
-# 
-# # integrate_features <- HVG_Seurat(sce.list[[reference]], nfeatures = n_features) %>% {.[. %in% rownames(sce.list[[query]])]}
-# 
-# ## Run models
-# small.cca <- run_SeuratCCA(small.sce.list, integrate_features)
-# small.liger <- run_liger(small.sce.list, integrate_features)
-# small.conos <- run_conos(small.sce.list, integrate_features)
-# 
-# ## Transfer labels
-# small.seu.cca <- labelTransfer_seuratCCA(seurat.list = small.cca$input,
-#                                          transfer.anchors = small.cca$model)
-# small.seu.liger <- labelTransfer_liger(liger.obj = small.liger$model,
-#                                        sce.list = small.liger$input, 
-#                                        k = 50)
-# small.seu.conos <- labelTransfer_conos(conos.out = small.conos$model,sce.list = small.conos$input)
-# 
-# small.seu.cca
-# small.seu.conos
-# small.seu.liger
-# # 
-# # small.liger <- run_liger(small.sce.list, integrate_features)
-# # small.seurat.liger <- labelTransfer_liger(liger.obj = small.liger$model, sce.list =  small.liger$input)
-# # small.conos <- run_conos(small.sce.list, integrate_features)
-# # seurat.list.conos <- labelTransfer_conos(small.conos$model, small.conos$input)
-# 
-# 
-# 
