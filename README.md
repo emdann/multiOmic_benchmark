@@ -2,7 +2,7 @@
 
 Comparison of multi-omic integration methods for single-cell data.
 
-### Rmarkdown notebooks to reproduce report figures
+### Notebooks to reproduce report figures
 
 - Fig.1A-B: `20191111_fracQuery.Rmd`
 - Fig.1C-D: `20191106_labelTransferEDA_PBMC.Rmd`
