@@ -79,6 +79,12 @@ pl1 <- DimPlot(atac.seu, reduction = "umap.activity", group.by="seurat_clusters"
 pl2 <- DimPlot(atac.seu, reduction = "UMAP", group.by="seurat_clusters", label=T) + ggtitle("bmat")
 CombinePlots(list(pl1, pl2), legend = "top")
 ```
+```{r}
+pl2 + guides(color="none") + ggtitle('') + 
+  theme_classic(base_size = 16) +
+  theme(axis.ticks = element_blank(), axis.text = element_blank()) +
+  ggsave(paste0(outdir, "UMAP_atac_thymus.pdf"), height = 6, width = 6)
+```
 
 Same is true if I embed on gene accessibility of genes selected as highly variable in the RNA dataset
 

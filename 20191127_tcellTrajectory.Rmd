@@ -335,6 +335,36 @@ coembed@assays$RNA@data[t.cell.markers$known.markers, ] %>%
   theme(panel.border = element_blank(), panel.grid = element_blank())
 ```
 
+Check accessibility of markers along pseudotime
+```{r, message=FALSE, warning=FALSE, fig.width=14, fig.height=4}
+logcounts(tcells.sce.atac)[c(t.cell.markers$recombination[1], "PTCRA"), ] %>%
+  as.matrix() %>%
+  reshape2::melt(varnames=c("gene", "cell")) %>%
+  mutate(cell=str_c("ATAC_", cell)) %>%
+  left_join(coembed@meta.data[,"dpt_pseudotime", drop=F] %>% rownames_to_column("cell")) %>%
+  mutate(pseudotime.rank=dense_rank(dpt_pseudotime)) %>%
+  group_by(gene) %>%
+  arrange(pseudotime.rank) %>%
+  # mutate(value=(value-min(value))/max(value)-min(value)) %>%
+  mutate(value=zoo::rollmean(value, k=30, fill=NA)) %>% 
+  # mutate(value=(value-mean(value))/sd(value)) %>%
+  ungroup() %>%
+  mutate(gene=factor(gene, levels=rev(unique(gene)))) %>%
+  ggplot(aes(pseudotime.rank, value, color=gene)) +
+  geom_line(size=1) +
+  facet_grid(gene~.)
+  scale_fill_viridis_c(name="accessibility") +
+  theme_bw(base_size = 16) +
+  theme(panel.border = element_blank(), panel.grid = element_blank())
+```
+```{r, fig.width=10, fig.height=4}
+DefaultAssay(coembed) <- "ATAC"
+FeaturePlot(coembed, feature=c("RAG1"), slot = "data", split.by = "tech")
+FeaturePlot(coembed, feature=c("CD4"), slot = "data", split.by = "tech")
+FeaturePlot(coembed, feature=c("IGLL1"), slot = "data", split.by = "tech")
+FeaturePlot(coembed, feature=c("CD34"), slot = "data", split.by = "tech")
+```
+
 Bin pseudotime and visualize cell type composition
 
 ```{r, fig.width=15, fig.height=4}
@@ -363,7 +393,7 @@ Correlation between global accessibility and pseudotime ordering.
 ```{r, fig.width=15, fig.height=8}
 snap.out <- readRDS(file = "~/my_data/cellranger-atac110_count_30439_WSSS8038360_GRCh38-1_1_0.snapATAC.RDS")
 
-groups <- dpt.df[dpt.df$tech=="ATAC", c("cell", "dpt_bin")]
+groups <- dpt.df[dpt.df$tech=="ATAC", c("cell", "dpt_bin", "annotation")]
 bmat <- snap.out@bmat[str_remove(groups$cell, "ATAC_"),]
 frac.accessible <- rowSums(bmat)/ncol(bmat)
 acc.fraction.pl <- groups %>%
@@ -384,6 +414,18 @@ dpt.pl +
   ggsave(paste0(outdir, "DPT_bins.png"), width=10, height = 7)
 ```
 
+```{r, fig.width=10, fig.height=10}
+groups %>%
+  mutate(frac_accessible=frac.accessible[str_remove(cell, "ATAC_")]) %>%
+  ggplot(aes(dpt_bin, frac_accessible)) +
+  geom_boxplot(aes(group=as.factor(dpt_bin)), outlier.alpha = 0.3, outlier.size = 0.7) +
+  # geom_jitter(alpha=0.1) +
+  xlab("Pseudotime bin") +
+  ylab("Fraction of accessible bins") +
+  facet_grid(annotation~.) +
+  theme_bw(base_size = 16)
+```
+
 ```{r, fig.height=10}
 coembed.umaps.pl <- plot_grid(
   DimPlot(coembed, group.by = c("tech")) + theme_classic(base_size = 16) + theme(legend.position = "top") ,
@@ -396,8 +438,8 @@ coembed.umaps.pl <- plot_grid(
   nrow=3, ncol=1, rel_heights = c(1.2,1,1.5)
 ) 
 
-plot_grid(coembed.umaps.pl, dpt.pl, rel_widths=c(1,1.7)) +
-  ggsave(paste0(outdir, "tcells_figure.png"), width=10, height = 10)
+plot_grid(coembed.umaps.pl, dpt.pl, rel_widths=c(1,1.9)) +
+  ggsave(paste0(outdir, "tcells_figure.png"), width=14, height = 10)
 ```
 
 <!-- Viz markers -->
@@ -563,7 +605,7 @@ var %>%
 
 Visualize deviation scores of the most variable motifs, ordered in pseudotime.
 
-```{r, fig.width=15, fig.height=10}
+```{r, fig.width=18, fig.height=10}
 sample_dpt_bins.df <- dpt.df %>%
   mutate(cell=str_remove(cell, "^ATAC_")) %>%
   filter(tech=="ATAC") %>%
@@ -576,14 +618,16 @@ mmat.topvar <- dev@assays$data$z[motif.topvar,sample_dpt_bins.df$cell]
 rownames(mmat.topvar) <- tf.topvar
 smooth.mmat <- apply(mmat.topvar, 1, function(x) zoo::rollmean(x, k=30)) %>% t() 
 
-png(paste0(outdir, "chromVAR_motif_heatmap.png"), width=1000, height = 900)
+tiff(paste0(outdir, "chromVAR_motif_heatmap.tiff"), width=900, height = 900)
+# pdf(paste0(outdir, "chromVAR_motif_heatmap.pdf"), width=9, height = 10)
 smooth.mmat %>%
   # mmat.topvar[,sample_dpt_bins.df$cell] %>%
   pheatmap::pheatmap(show_colnames = F, cluster_cols = F, clustering_distance_rows = "correlation",
                      annotation_col = sample_dpt_bins.df[,c("cell", "annotation", "dpt_pseudotime")] %>% column_to_rownames("cell"), 
-                     annotation_colors = list(annotation=cell.type.pal, dpt_pseudotime=viridis::viridis(100)), fontsize = 18, fontsize_row = 12,
+                     annotation_colors = list(annotation=cell.type.pal, dpt_pseudotime=viridis::viridis(100)), fontsize = 18, fontsize_row = 14,
                      # color = colorRampPalette(rev(brewer.pal(n = 7, name ="Spectral")))(100))
-                     breaks=seq(-3,3, length.out = 100)
+                     breaks=seq(-3,3, length.out = 100), legend = F, annotation_legend = F,
+                     legend_breaks = c(-2, -1, 0, 1, 2, 3), legend_labels = c("-2", "-1", "0", "1","2", "Deviation\n(z-score)")
   )
 dev.off()
 ```
@@ -656,6 +700,10 @@ tf.list <- map_if(tf.list, c(TRUE, TRUE, TRUE, FALSE), ~ .x + theme(axis.title.x
 tf.list
 plot_grid(plotlist = tf.list, align="v", axis="l", nrow=4, ncol=1, rel_heights = c(1,1,1,1.15)) +
   ggsave(paste0(outdir, "TF_pl_fig.png"), height = 11, width = 5)
+```
+
+```{r}
+plot.tfs("TFAP4")
 ```
 
 ### Ways to optimize this analysis 
