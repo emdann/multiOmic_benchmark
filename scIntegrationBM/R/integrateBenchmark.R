@@ -2,20 +2,20 @@
 ### Integration methods ###
 ###########################
 
-suppressPackageStartupMessages({
-library(Seurat)
-library(tidyverse)
-library(liger)
-library(conos)
-library(pdist)
-library(SeuratWrappers)
-library(SingleCellExperiment)
-library(MultiAssayExperiment)
-library(magrittr)
-library(FastKNN)
+# suppressPackageStartupMessages({
+# library(Seurat)
+# library(tidyverse)
+# library(liger)
+# library(conos)
+# library(pdist)
+# library(SeuratWrappers)
+# library(SingleCellExperiment)
+# library(MultiAssayExperiment)
+# library(magrittr)
+# library(FastKNN)
 # source("~/multiOmic_benchmark/preprocess/selectFeatures.R")
 # source("~/multiOmic_benchmark/utils.R")
-})
+# })
 
 ### Transfer Labels ###
 #' Label transfer from Seurat CCA
@@ -29,17 +29,20 @@ library(FastKNN)
 #' @import Seurat
 #'
 #' @export
-labelTransfer_seuratCCA <- function(transfer.anchors, seurat.list, reference="RNA", query="ATAC"){
+labelTransfer_seuratCCA <- function(transfer.anchors, seurat.list, annotation.col="annotation", reference="RNA", query="ATAC", ... ){
+  labels <- seurat.list[[reference]]@meta.data[,annotation.col]
+  names(labels) <- rownames(seurat.list[[reference]]@meta.data)
   ## Transfer cell type labels
-  celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = seurat.list[[reference]]$annotation, weight.reduction = seurat.list[[query]][["LSI"]])
+  celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = labels,
+                                       ... )
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = celltype.predictions)
   return(seurat.list)
 }
 
 #' Label transfer for LIGER
 #' @param liger.obj liger object (output of run_liger)
-#' @param sce.list list of SingleCellExperiment objects used as input for run_liger
-#' @param annotation column of meta
+#' @param seurat.list list of Seurat objects used as input for run_liger
+#' @param annotation.col column of meta
 #' @param reference reference dataset for label transfer
 #' @param query query dataset for label transfer
 #'
@@ -55,10 +58,11 @@ labelTransfer_seuratCCA <- function(transfer.anchors, seurat.list, reference="RN
 #' @import dplyr
 #' @importFrom FastKNN k.nearest.neighbors
 #' @importFrom Seurat as.Seurat
+#' @importFrom pdist pdist
 #'
 #' @export
-labelTransfer_liger <- function(liger.obj, sce.list, annotation.col="annotation", k=50, reference="RNA", query="ATAC"){
-  seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
+labelTransfer_liger <- function(liger.obj, seurat.list, annotation.col="annotation", k=50, reference="RNA", query="ATAC"){
+  # seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
   seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
   annotation <- seurat.list[[reference]][[annotation.col]]
 
@@ -90,8 +94,21 @@ labelTransfer_liger <- function(liger.obj, sce.list, annotation.col="annotation"
   return(seurat.list)
 }
 
+### Transfer Labels ###
+#' Label transfer from Conos
+#' @param conos.out model output of `run_conos`
+#' @param sce.list list of SingleCellExperiment objects used as input of `run_conos` (saved as `input` in output list of `run_conos`)
+#' @param annotation.col column of meta
+#' @param reference reference dataset for FindTransferAnchors
+#' @param query query dataset for FindTransferAnchors
+#'
+#' @return list of Seurat objects with predicted annotations in the query dataset metadata
+#'
+#' @import Seurat
+#'
+#' @export
 labelTransfer_conos <- function(conos.out, sce.list, annotation.col="annotation", reference="RNA", query="ATAC"){
-  seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
+  # seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
   ## Extract cell type annotation
   annotation <- seurat.list[[reference]][[annotation.col]]
   annotation <- setNames(annotation[,1], rownames(annotation))
@@ -105,8 +122,9 @@ labelTransfer_conos <- function(conos.out, sce.list, annotation.col="annotation"
 }
 
 ### Run models ###
+
 #' Seurat CCA integration model
-#' @param sce.list list of SingleCellExperiment objects for RNA and ATAC seq datasets
+#' @param sce.list list of SingleCellExperiment objects for multi-omic datasets
 #' @param integrate_features selected features to perform CCA on
 #' @param reference reference dataset for FindTransferAnchors
 #' @param query query dataset for FindTransferAnchors
@@ -116,33 +134,45 @@ labelTransfer_conos <- function(conos.out, sce.list, annotation.col="annotation"
 #' @details Function outputs list of
 #' 1) model: CCA model (Anchor object from Seurat)
 #' 2) input: Seurat object list containing input datasets
-run_SeuratCCA <- function(sce.list, integrate_features, reference="RNA", query="ATAC"){
-  seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
-  seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
-  ## Scale data
-  seurat.list <- map(seurat.list, ~ ScaleData(.x))
-  ## Calculate CCA anchors
-  transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]],
-                                          features = integrate_features,
-                                          reduction = "cca")
+#'
+#' @import Seurat
+#'
+#' @export
+run_SeuratCCA <- function(seurat.list, integrate_features, reference="RNA", query="ATAC"){
+    # seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
+    seurat.list <- imap(seurat.list, ~ RenameCells(.x, add.cell.id=.y))
+    ## Scale data
+    seurat.list <- map(seurat.list, ~ ScaleData(.x))
+    ## Calculate CCA anchors
+    transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]],
+                                            features = integrate_features,
+                                            reduction = "cca")
   return(list(model=transfer.anchors, input=seurat.list))
   }
 
 #' LIGER NMF model
-
-#' @param sce.list list of SingleCellExperiment objects for RNA and ATAC seq datasets
+#' @param sce.list list of SingleCellExperiment objects for multi-omic datasets
 #' @param integrate_features selected features to perform CCA on
+#' @param reference reference dataset for FindTransferAnchors
+#' @param query query dataset for FindTransferAnchors
 #'
 #' @return list of integration output (see details)
 #'
 #' @details Function outputs list of
 #' 1) model:
 #' 2) misc
-run_liger <- function(sce.list, integrate_features, reference="RNA", query="ATAC"){
-  data.list <- map(sce.list, ~ assay(.x, "counts"))
-  liger.obj <- createLiger(data.list)
-  liger.obj@norm.data <- map(sce.list, ~ assay(.x, "logcounts"))
-  liger.obj@norm.data[[query]] <- Matrix(logcounts(sce.list[[query]]))
+#'
+#' @import liger
+#' @importFrom purrr map
+#'
+#' @export
+run_liger <- function(seurat.list, integrate_features, reference="RNA", query="ATAC"){
+  liger.obj <- seuratToLiger(seurat.list[c(reference,query)], names = c(reference,query), renormalize = F)
+  liger.obj@norm.data <- map(seurat.list, ~ Matrix(.x@assays[[1]]@data))
+  # data.list <- map(seurat.list, ~ assay(.x, "counts"))
+  # liger.obj <- createLiger(data.list)
+  # liger.obj@norm.data <- map(sce.list, ~ assay(.x, "logcounts"))
+  # liger.obj@norm.data[[query]] <- Matrix(logcounts(sce.list[[query]]))
   ## Select genes
   integrate_features <- integrate_features[which(integrate_features %in% rownames(liger.obj@norm.data[[reference]]) &
                                                    integrate_features %in% rownames(liger.obj@norm.data[[query]]))]
@@ -155,13 +185,27 @@ run_liger <- function(sce.list, integrate_features, reference="RNA", query="ATAC
   liger.obj <- quantileAlignSNF(liger.obj)
   ## Run UMAP otherwise Seurat conversion fails
   liger.obj <- runUMAP(liger.obj)
-  return(list(model = liger.obj, input=sce.list))
+  return(list(model = liger.obj, input=seurat.list))
 }
 
 #' Run CONOS
+#' @param sce.list list of SingleCellExperiment objects for multi-omic datasets
+#' @param integrate_features selected features to perform CCA on
+#' @param reference reference dataset for FindTransferAnchors
+#' @param query query dataset for FindTransferAnchors
 #'
-run_conos <- function(sce.list, integrate_features, reference="RNA", query="ATAC"){
-  data.processed <- map(sce.list, ~ as.Seurat(.x))
+#' @return list of integration output (see details)
+#'
+#' @details Function outputs list of
+#' 1) model:
+#' 2) misc
+#'
+#' @import conos
+#' @import Seurat
+#'
+#' @export
+run_conos <- function(seurat.list, integrate_features, reference="RNA", query="ATAC"){
+  data.processed <- seurat.list
   VariableFeatures(data.processed[[reference]]) <- integrate_features
   VariableFeatures(data.processed[[query]]) <- integrate_features
   data.processed <- map(data.processed, ~ ScaleData(.x) %>% RunPCA(dims=1:30))
@@ -170,11 +214,12 @@ run_conos <- function(sce.list, integrate_features, reference="RNA", query="ATAC
 
   l.con$findCommunities(resolution=1.5)
   l.con$embedGraph(alpha=1/2)
-  return(list(model=l.con, input=sce.list))
+  return(list(model=l.con, input=seurat.list))
 }
 
 ### Utils ###
 
+#' Utility function for labelTransfer with Liger
 propagateNNannotation <- function(nn.vector, annotation){
   nn.annotations <- table(annotation[nn.vector,])
   if (length(which(nn.annotations==max(nn.annotations))) > 1) {
@@ -187,6 +232,31 @@ propagateNNannotation <- function(nn.vector, annotation){
   }
   label.fraction <- max(nn.annotations)[1]/sum(nn.annotations)
   list(predicted.id=predicted.id, score=label.fraction)
+}
+
+#' Get cell type prediction from benchmark output
+#' @param seu.int list of Seurat objects of label transfer output
+#' @param int.name label for integration method
+#' @param id.col column of predicted labels in obj metadata (default: "predicted.id")
+#' @param score.col column of prediction score in obj metadata (default: "score")
+#' @param filter_score numeric indicating the minimum prediction score to keep assigned label (default: 0)
+#'
+#' @return returns data.frame of label predictions and prediction scores
+#'
+#' @import dplyr
+#' @import stringr
+#'
+#' @export
+getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score", filter_score=0){
+  pred.df <- seu.int$ATAC@meta.data[,c(id.col, score.col), drop=F]
+  colnames(pred.df) <- c('predicted.id', "score")
+  pred.df <- pred.df %>%
+    rownames_to_column("cell") %>%
+    mutate(predicted.id = ifelse(score < filter_score, NA, as.character(predicted.id))) %>%
+    column_to_rownames("cell")
+  rownames(pred.df) <- str_remove(rownames(pred.df), "^ATAC_")
+  colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
+  pred.df
 }
 
 # ----------------- Deprecated functions ----------------- #
@@ -208,11 +278,14 @@ integrate_seuratCCA <- function(sce.list, integrate_features, reference="RNA", q
   seurat.list <- imap(sce.list, ~ as.Seurat(.x, assay=.y))
   ## Scale data
   seurat.list <- map(seurat.list, ~ ScaleData(.x))
+
+  # integrate_features <- integrate_features[which(integrate_features %in% rownames(seurat.list[[reference]]) &
+                                                   # integrate_features %in% rownames(seurat.list[[query]]))]
   ## Calculate CCA anchors
   transfer.anchors <- FindTransferAnchors(reference = seurat.list[[reference]], query = seurat.list[[query]],
                                           features = integrate_features,
                                           reduction = "cca")
-  ## Impute transcriptome for ATAC-seq cells
+   ## Impute transcriptome for ATAC-seq cells
   refdata <- GetAssayData(seurat.list[[reference]], slot = "scale.data")
   imputation <- TransferData(anchorset = transfer.anchors, refdata = refdata,
                              weight.reduction = 'cca')

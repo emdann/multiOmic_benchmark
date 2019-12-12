@@ -1,0 +1,110 @@
+---
+title: "Benchmarking integration methods for single-cell multi-omic data"
+author: "Emma Dann"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{scIntegration_basic}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette illustrates how to run a comparison of integration methods for multi-modal single-cell datasets using the `scIntegrationBM` package. This provides wrappers to run CCA, Liger and Conos in a standardized "same-input/same-output" framework. The package also implements a KNN purity function to evaluate performance of label transfer.
+
+## Example dataset {-}
+I will illustrate how to run the benchmark on scRNA-seq and scATAC-seq data generated from PBMCs, provided by 10XGenomics. Raw scRNA-seq counts were downloaded with the Seurat R package (https://www.dropbox.com/s/3f3p5nxrn5b3y4y/pbmc_10k_v3.rds?dl=1). Raw scATAC-seq fragments were downloaded with the SnapATAC package (download link: http://renlab.sdsc.edu/r3fang//share/github/PBMC_ATAC_RNA/atac_pbmc_10k_nextgem.snap). I preprocessed the scATAC-seq data using SnapATAC (see `multiOmic_benchmark/preprocess/20191105_makeSCE_10Xdata.Rmd`) and the scRNA-seq data using Seurat.
+
+```{r}
+pbmc.atac.snap <- readRDS("~/my_data/10X_data/atac_pbmc_10k_nextgem.snapATAC.RDS")
+pbmc.rna.seu <- readRDS("~/my_data/10X_data/pbmc_10k_v3.rds")
+```
+
+```{r}
+pbmc.rna.seu
+```
+
+## Dimensionality reduction {-}
+
+To evaluate performance of label transfer we will use the neighborhood graph built on the query dataset before preprocessing for integration. For scATAC-seq we use LSI for dimensionality reduction.
+
+```{r}
+bmat <- pbmc.atac.snap@bmat
+bmat <- t(bmat)
+rownames(bmat) <- pbmc.atac.snap@feature$name
+meta <- pbmc.atac.snap@metaData %>% rownames_to_column() %>% select(- c(cell_id,rowname) ) %>% column_to_rownames("barcode")
+
+bmat.seu <- CreateSeuratObject(counts = bmat, assay = "ATAC", min.cells = 100, meta.data = meta)
+bmat.seu <- RunLSI(bmat.seu, n = 30)
+```
+
+
+## Pre-processing for label transfer {-}
+
+The integration functions take in input a list of `Seurat` objects, with different cells in the columns and an at least partially overlapping set of features in the rows. This is because when molecular profiles are measured on a different set of cells, integration methods align datasets on the basis of a same set of features. 
+
+In our example, accessibility profiles need to be reduced to gene accessibility for integration with scRNA-seq. These cell-by-gene matrix can be generated using the `createGmatFromBmat` function in SnapATAC, which counts the number of accessible bins overlapping the gene body + promoter (2 kb upstream). We found that binarizing these cell-by-gene counts can greatly improve the integration. 
+
+```{r}
+bgmat <- as.matrix(pbmc.atac.snap@gmat)
+bgmat <- ifelse(bgmat == 0, 0, 1)
+## Compatibility w Seurat
+colnames(bgmat) %<>% str_replace_all("_", "-")
+```
+
+I then build a Seuratt object of the binary cell-by-gene matrix, saving it as in the slot for normalized data. I include the LSI on the genome-wide accessibility profiles in the `reductions` slot.
+
+```{r}
+pbmc.atac.seu <- CreateSeuratObject(counts = t(bgmat), assay="ATAC_GMAT", project = "ATAC")
+pbmc.atac.seu@assays$ATAC_GMAT@data <- pbmc.atac.seu@assays$ATAC_GMAT@counts
+
+pbmc.atac.seu@reductions <- bmat.seu@reductions
+```
+
+I then create a *named* list that will be used as input for integration
+```{r}
+pbmc.rna.seu@project.name <- "RNA"
+seu.list <- list(RNA = pbmc.rna.seu, ATAC = pbmc.atac.seu)
+```
+
+You can create your SingleCellExperiment objects, save them as RDS files and load them with _a function that I have not written yet_
+
+## Feature selection {-}
+
+You need to select a set of informative features on which you want to run integration. For scATAC-seq and scRNA-seq integration we go for a joint feature selection, taking the union of the most variable features in the scRNA-seq dataset and of the most covered features in the ATAC-seq dataset (covered in more than 10% of cells).
+
+```{r}
+pbmc.rna.seu <- FindVariableFeatures(pbmc.rna.seu, selection.method="mvp", dispersion.cutoff=c(0.5, 10), mean.cutoff=c(0.0125, 3))
+hvg.rna <- VariableFeatures(pbmc.rna.seu)
+hcf.atac <- names(which(Matrix::rowSums(logcounts(pbmc.atac.sce)) > 0.2*ncol(pbmc.atac.sce)))
+integration.features <- union(hvg.rna, hcf.atac)
+
+length(integration.features)
+```
+
+## Run integration models 
+
+We can now run our integration methods. We need to specify the name of the dataset in the list to be used as reference and the one to be used as query. Depending on the method, this step can take several minutes. You might want to save the `model` output for future use or exploration. The functions save both the models and the list of input data as it was transformed for integration. This list will be used in input for the downstream functions (e.g. label transfer).
+
+```{r, message=FALSE, eval=FALSE, warning=FALSE}
+cca.model <- run_SeuratCCA(seu.list, integration.features, reference = "RNA", query = "ATAC")
+liger.model <- run_liger(seu.list, integration.features, reference = "RNA", query = "ATAC")
+conos.model <- run_conos(seu.list, integration.features, reference = "RNA", query = "ATAC")
+```
+
+## Label transfer {-}
+
+We now run label transfer on the inferred models. We need to specify which column in the reference dataset metadata corresponds to the column we want to transfer.
+
+```{r}
+seu.cca <- labelTransfer_seuratCCA(seurat.list = cca.model$input,
+                                         transfer.anchors = cca.model$model, annotation.col = "celltype"
+                                   )
+```
+
