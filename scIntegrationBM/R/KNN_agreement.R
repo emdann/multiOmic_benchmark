@@ -5,6 +5,33 @@ library(Seurat)
 library(parallel)
 library(purrr)
 
+# --- Final wrapper function --- #
+
+#' Calculate KNN purity as a function of k
+#'
+#' @param query.seu Seurat object of query dataset
+#' @param pred.labels named vector of predicted labels for each cell
+#' @param reduction.name name of reduction object in `query.seu@reductions` to use to compute NN graphs
+#'
+#' @details
+#' KNN purity aims to measure the agreement between predicted labels and the neighboorhood structure of the query dataset
+#' before preprocessing for integration.
+#' For each value of k, a k-nearest-neighbor (KNN) graph of query cells on reduced dimensions is constructed. Then the fraction of
+#' NNs per cell with the same predicted label is calculated. The same fraction is calculated on 100 random permutation of the predicted labels,
+#' to estimate a null distribution.
+#' The purpose of this step is to avoid giving a high score to a prediction that assigns many cells to just a few clusters.
+#' KNN purity is defined as the Kolmogorov-Smirnov deviation statistic between true and null distribution of KNN fractions across all cells.
+#'
+#' @return long dataframe storing value of K and calculated KNN purity
+#'
+#' @importFrom purrr reduce
+#'
+#' @export
+calculate_KNN_purity <- function(query.seu, pred.labels, reduction.name){
+  knn.purity.df <- lapply(1:3, function(x) KNN_purity_dist(query.seu, pred.labels, reduction.name = reduction.name))
+  reduce(knn.purity.df, bind_rows)
+  }
+
 #' Get NN list from original data reduction
 #' @param query.seu Seurat object of query dataset
 #' @param k numeric indicating number of nearest neighbors to build graph
@@ -12,9 +39,9 @@ library(purrr)
 #'
 #' @return list of nearest neighbors per cell
 #'
-getQueryKNNgraph <- function(query.seu, k, reduction.name){
-  query.seu <- FindNeighbors(query.seu, reduction = reduction.name, k.param = k)
-  nn.list <- getNNlist(query.seu)
+getQueryKNNgraph <- function(seu, k, reduction.name){
+  suppressMessages({seu <- FindNeighbors(seu, reduction = reduction.name, k.param = k)})
+  nn.list <- getNNlist(seu)
   nn.list
 }
 
@@ -54,7 +81,7 @@ KNN_score <- function(nn.list, pred.labels ){
 KNN_purity_test <- function(nn.list, pred.labels, n_perm = 100, n_cores=detectCores()){
   true <- KNN_score(nn.list, pred.labels)
   null <- null_KNN_score(nn.list, pred.labels, n_perm = n_perm, n_cores=n_cores)
-  ks <- ks.test(x = true, y=null, alternative = "less")
+  suppressWarnings({ks <- ks.test(x = true, y=null, alternative = "less")})
   list(fracKNN = true, null = null, KNN_purity=ks$statistic[1], p_val=format.pval(ks$p.value))
 }
 
@@ -70,13 +97,14 @@ KNN_purity_test <- function(nn.list, pred.labels, n_perm = 100, n_cores=detectCo
 KNN_purity_dist <- function(query.seu, pred.labels, reduction.name){
   ## Select Ks to range from 1 to 10% of total cells in dataset
   tot.cells <- ncol(query.seu)
-  k.vector <- tot.cells*seq(0.01,0.1, by=0.005)
+  k.vector <- (tot.cells/100)*seq(1,10, by=0.5)
   ## Calculate KNN purity for each K
   knn_purity.df <- data.frame(k=k.vector, knn_purity=NA)
   for (k in k.vector) {
+    message(paste('k =', k))
     nn.list <- getQueryKNNgraph(query.seu, k=k, reduction.name = reduction.name)
     KNN_purity <- KNN_purity_test(nn.list, pred.labels)
-    df[df$k==k, "knn_purity"] <- KNN_purity$KNN_purity
+    knn_purity.df[knn_purity.df$k==k, "knn_purity"] <- KNN_purity$KNN_purity
   }
   knn_purity.df
 }
@@ -107,4 +135,26 @@ getNNlist <- function(obj, is.seurat=TRUE){
 null_KNN_score <- function(nn.list, pred.labels, n_perm = 10, n_cores=10){
   null <- mclapply(X = list(1:n_perm), function(x) KNN_score(nn.list, setNames(sample(pred.labels), nm = names(pred.labels))), mc.cores = n_cores)
   Reduce( c, null)
+}
+
+# --- Plotting function ---- #
+
+#' Plot KNN purity as a function of K
+#' @param knn.purity.out output of `compute_KNN_purity`
+#'
+#' @return ggplot object
+#'
+#' @import ggplot
+#' @import dplyr
+#'
+#' @export
+plot_KNN_purity <- function(knn.purity.out){
+  frac.cells.k <- setNames(seq(1,10, by=0.5), sort(unique(knn.purity.df$k)))
+  knn.purity.out %>%
+    mutate(frac.cells = frac.cells.k[as.character(k)]) %>%
+    ggplot(aes(frac.cells, knn_purity)) +
+    geom_point() +
+    geom_smooth() +
+    xlab("K (% tot cells)") + ylab("KNN purity")
+
 }

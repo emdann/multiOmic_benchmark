@@ -117,12 +117,20 @@ The predicted labels can then be added to the Seurat objects for visualization
 
 ## KNN agreement score {-}
 
-The package includes functions to measure the agreement of label transfer output with k-NN graph from full query dataset before preprocessing.
+The package includes functions to measure the agreement of label transfer output with k-NN graph from full query dataset before preprocessing. The wrapper function calculates KNN purity at each value of k. Because it is a permutation based test, the statistic is computed 3 times for each value of k. This takes a minute or two. 
+
+In this example we calculate KNN purity retaining only labels with prediction score > 0.5.
 
 ```{r}
-pred.labels <- setNames(pred.labels.cca[,"predicted.id"], rownames(pred.labels.cca))
-KNN_purity_dist(pbmc.atac.seu, pred.labels, reduction.name = "lsi
-                ")
+pred.labels.hq <- subset(pred.labels.cca, pred.labels.cca$score > 0.5)
+pred.labels <- setNames(pred.labels.hq[,"predicted.id"], rownames(pred.labels.hq))
 
+knn.purity.df <- calculate_KNN_purity(seu.list$ATAC, pred.labels, reduction.name = "lsi")
+```
+
+The package includes a utility function for visualization of KNN purity as a function of k. The shape of this curve will be inherently dataset specific (if the cell type clusters are small we expect KNN purity to fall at higher values for k), but it's useful for comparing pipelines on the same dataset.
+
+```{r}
+plot_KNN_purity(knn.purity.df)
 ```
 
