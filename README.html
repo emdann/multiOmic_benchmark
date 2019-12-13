@@ -369,6 +369,7 @@ summary {
 <h1>Optimizing integration of scRNA-seq and scATAC-seq datasets</h1>
 <div id="content" class="section level3">
 <h3>Content</h3>
+<hr />
 <div id="analysis-notebooks" class="section level5">
 <h5>Analysis notebooks</h5>
 <ul>
@@ -376,9 +377,20 @@ summary {
 <ul>
 <li><code>20191111_fracQuery_EDA.Rmd</code> contains method run time and robustness analysis</li>
 <li><code>20191111_labelTransferEDA_PBMC.Rmd</code> contains comparison of label transfer outcomes (visualization, prediction score analysis, KNN purity analysis)</li>
-<li><a href="https://github.com/EmmaDann/multiOmic_benchmark/blob/master/PBMC_benchmark/20191113_clusterSize_PBMC.Rmd"><code>20191113_clusterSize_PBMC.Rmd</code></a> contains comparison of dependency of label transfer on cluster size</li>
+<li><code>20191113_clusterSize_PBMC.Rmd</code> contains comparison of dependency of label transfer on cluster size</li>
 </ul></li>
-<li><code>/Thymus_benchmark/</code></li>
+<li><code>/Thymus_benchmark/</code> comparison of integration methods and featurizarion strategies on Fetal thymus dataset
+<ul>
+<li><code>*_labelTransferEDA_thymus_v2*</code> contain comparison of label transfer outcomes (visualization, prediction score analysis, KNN purity analysis), w different featurization strategy (binary gmat/counts gmat) and feature selection methods (joint/reference-based)</li>
+<li><code>20191125_gmat_EDA.Rmd</code> exploration of featurization strategies outcomes on scATAC-seq data</li>
+</ul></li>
+<li><code>/Tcell_maturation_analysis/</code> integrative analysis of T cell trajectory in fetal thymus</li>
+<li><code>/preprocess/</code> scripts/notebooks for preprocessing and explorative data analysis of scRNA-seq and scATAC-seq datasets</li>
+<li><code>/report/</code> bookdown project for final report</li>
+<li><code>/run_integration_wrappers/</code> wrappers to run workflow for method comparison</li>
+<li><code>/scIntegrationBM/</code> R package for bechmarking of integration methods <em>(work in progress)</em></li>
+<li><code>/test_methods/</code> scripts for reproducing vignettes of integration methods</li>
+<li><code>/thrashNsnippets/</code> misc</li>
 </ul>
 </div>
 </div>
