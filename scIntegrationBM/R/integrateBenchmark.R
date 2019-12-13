@@ -36,7 +36,8 @@ labelTransfer_seuratCCA <- function(transfer.anchors, seurat.list, annotation.co
   celltype.predictions <- TransferData(anchorset = transfer.anchors, refdata = labels,
                                        ... )
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = celltype.predictions)
-  return(seurat.list)
+  pred.labels <- getPredictedLabels(seurat.list, int.name = "CCA", id.col = 'predicted.id', score.col = "prediction.score.max" )
+  return(pred.labels)
 }
 
 #' Label transfer for LIGER
@@ -91,7 +92,8 @@ labelTransfer_liger <- function(liger.obj, seurat.list, annotation.col="annotati
     dplyr::filter(cell %in% colnames(small.seu.liger)[which(small.seu.liger$orig.ident==query)]) %>%
     column_to_rownames("cell")
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = query.metadata)
-  return(seurat.list)
+  pred.labels <- getPredictedLabels(seurat.list, int.name = "Liger", id.col = 'predicted.id', score.col="score")
+  return(pred.labels)
 }
 
 ### Transfer Labels ###
@@ -118,7 +120,8 @@ labelTransfer_conos <- function(conos.out, sce.list, annotation.col="annotation"
   score <- apply(new.label.probabilities, 1, max)
   seurat.list[[query]] <- AddMetaData(seurat.list[[query]], metadata = data.frame(predicted.id = new.annot[colnames(seurat.list[[query]])],
                                                                                   score = score[colnames(seurat.list[[query]])]))
-  return(seurat.list)
+  pred.labels <- getPredictedLabels(seurat.list, int.name = "Conos", id.col = 'predicted.id', score.col="score")
+  return(pred.labels)
 }
 
 ### Run models ###
@@ -247,17 +250,26 @@ propagateNNannotation <- function(nn.vector, annotation){
 #' @import stringr
 #'
 #' @export
-getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score", filter_score=0){
-  pred.df <- seu.int$ATAC@meta.data[,c(id.col, score.col), drop=F]
+getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score", filter_score=0, query="ATAC"){
+  pred.df <- seu.int[[query]]@meta.data[,c(id.col, score.col), drop=F]
   colnames(pred.df) <- c('predicted.id', "score")
   pred.df <- pred.df %>%
     rownames_to_column("cell") %>%
     mutate(predicted.id = ifelse(score < filter_score, NA, as.character(predicted.id))) %>%
+    mutate(method = int.name) %>%
     column_to_rownames("cell")
-  rownames(pred.df) <- str_remove(rownames(pred.df), "^ATAC_")
-  colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
+  rownames(pred.df) <- str_remove(rownames(pred.df), paste0("^", query,"_"))
+  # colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
   pred.df
 }
+
+
+
+
+
+
+
+
 
 # ----------------- Deprecated functions ----------------- #
 

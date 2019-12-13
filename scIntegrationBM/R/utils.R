@@ -41,30 +41,6 @@
 # }
 
 
-#' Get cell type prediction from benchmark output
-#' @param seu.int list of Seurat objects of label transfer output
-#' @param int.name label for integration method
-#' @param id.col column of predicted labels in obj metadata (default: "predicted.id")
-#' @param score.col column of prediction score in obj metadata (default: "score")
-#' @param filter_score numeric indicating the minimum prediction score to keep assigned label (default: 0)
-#'
-#' @return returns data.frame of label predictions and prediction scores
-#'
-#' @import dplyr
-#' @import stringr
-#'
-#' @export
-getPredictedLabels <- function(seu.int, int.name, id.col="predicted.id", score.col="score", filter_score=0){
-  pred.df <- seu.int$ATAC@meta.data[,c(id.col, score.col), drop=F]
-  colnames(pred.df) <- c('predicted.id', "score")
-  pred.df <- pred.df %>%
-    rownames_to_column("cell") %>%
-    mutate(predicted.id = ifelse(score < filter_score, NA, as.character(predicted.id))) %>%
-    column_to_rownames("cell")
-  rownames(pred.df) <- str_remove(rownames(pred.df), "^ATAC_")
-  colnames(pred.df) <- c(str_c("predicted.id", "_", int.name), str_c("score", "_", int.name))
-  pred.df
-}
 
 ### Plotting utils ###
 

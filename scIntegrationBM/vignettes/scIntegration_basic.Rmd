@@ -58,11 +58,11 @@ bgmat <- ifelse(bgmat == 0, 0, 1)
 colnames(bgmat) %<>% str_replace_all("_", "-")
 ```
 
-I then build a Seuratt object of the binary cell-by-gene matrix, saving it as in the slot for normalized data. I include the LSI on the genome-wide accessibility profiles in the `reductions` slot.
+I then build a Seurat object of the binary cell-by-gene matrix, saving it as in the slot for normalized data. I include the LSI on the genome-wide accessibility profiles in the `reductions` slot.
 
 ```{r}
-pbmc.atac.seu <- CreateSeuratObject(counts = t(bgmat), assay="ATAC_GMAT", project = "ATAC")
-pbmc.atac.seu@assays$ATAC_GMAT@data <- pbmc.atac.seu@assays$ATAC_GMAT@counts
+pbmc.atac.seu <- CreateSeuratObject(counts = t(bgmat), assay="ATAC", project = "ATAC")
+pbmc.atac.seu@assays$ATAC@data <- pbmc.atac.seu@assays$ATAC@counts
 
 pbmc.atac.seu@reductions <- bmat.seu@reductions
 ```
@@ -82,7 +82,7 @@ You need to select a set of informative features on which you want to run integr
 ```{r}
 pbmc.rna.seu <- FindVariableFeatures(pbmc.rna.seu, selection.method="mvp", dispersion.cutoff=c(0.5, 10), mean.cutoff=c(0.0125, 3))
 hvg.rna <- VariableFeatures(pbmc.rna.seu)
-hcf.atac <- names(which(Matrix::rowSums(logcounts(pbmc.atac.sce)) > 0.2*ncol(pbmc.atac.sce)))
+hcf.atac <- names(which(Matrix::rowSums(pbmc.atac.seu@assays$ATAC@data) > 0.2*ncol(pbmc.atac.seu)))
 integration.features <- union(hvg.rna, hcf.atac)
 
 length(integration.features)
@@ -100,11 +100,29 @@ conos.model <- run_conos(seu.list, integration.features, reference = "RNA", quer
 
 ## Label transfer {-}
 
-We now run label transfer on the inferred models. We need to specify which column in the reference dataset metadata corresponds to the column we want to transfer.
+We now run label transfer on the inferred models. We need to specify which column in the reference dataset metadata corresponds to the column we want to transfer. 
+<!-- The output is a list of seurat objects, where a predicted annotation column is added in the `meta.data` of the query dataset. -->
+Returns a dataframe of predicted labels and prediction scores for each method.
 
 ```{r}
-seu.cca <- labelTransfer_seuratCCA(seurat.list = cca.model$input,
-                                         transfer.anchors = cca.model$model, annotation.col = "celltype"
+pred.labels.cca <- labelTransfer_seuratCCA(seurat.list = cca.model$input,
+                                         transfer.anchors = cca.model$model, annotation.col = "celltype",
+                                   weight.reduction = cca.model$input[["ATAC"]]@reductions[["lsi"]]
                                    )
+
+pred.labels.cca
+```
+
+The predicted labels can then be added to the Seurat objects for visualization
+
+## KNN agreement score {-}
+
+The package includes functions to measure the agreement of label transfer output with k-NN graph from full query dataset before preprocessing.
+
+```{r}
+pred.labels <- setNames(pred.labels.cca[,"predicted.id"], rownames(pred.labels.cca))
+KNN_purity_dist(pbmc.atac.seu, pred.labels, reduction.name = "lsi
+                ")
+
 ```
 
