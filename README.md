@@ -1,6 +1,16 @@
 # Optimizing integration of scRNA-seq and scATAC-seq datasets
 
-Comparison of multi-omic integration methods for single-cell data.
+### Content
+
+##### Analysis notebooks
+
+- `/PBMC_benchmark/` comparison of integration methods on PBMC dataset from 10X genomics
+  - `20191111_fracQuery_EDA.Rmd` contains method run time and robustness analysis
+  - `20191111_labelTransferEDA_PBMC.Rmd` contains comparison of label transfer outcomes (visualization, prediction score analysis, KNN purity analysis) 
+  - (`20191113_clusterSize_PBMC.Rmd`)[https://github.com/EmmaDann/multiOmic_benchmark/blob/master/PBMC_benchmark/20191113_clusterSize_PBMC.Rmd] contains comparison of dependency of label transfer on cluster size
+- `/Thymus_benchmark/`
+
+
 
 ### Notebooks to reproduce report figures
 
